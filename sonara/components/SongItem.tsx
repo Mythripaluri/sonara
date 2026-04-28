@@ -1,9 +1,9 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Image, Text, TouchableOpacity, View } from "react-native";
 import { usePlayer } from "../context/PlayerContext";
 import { colors } from "../theme/colors";
 
-export default function SongItem({ song, onPress, highlightQuery = "" }) {
+export default function SongItem({ song, onPress, highlightQuery = "", onAddToPlaylist = null }) {
   const { currentSong, isPlaying, pause, resume } = usePlayer();
 
   const isCurrent = currentSong?.id === song.id;
@@ -97,6 +97,25 @@ export default function SongItem({ song, onPress, highlightQuery = "" }) {
       >
         <Ionicons name={isCurrent && isPlaying ? "pause" : "play"} size={18} color="#fff" />
       </TouchableOpacity>
+
+      {onAddToPlaylist && (
+        <TouchableOpacity
+          onPress={() => onAddToPlaylist(song)}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: colors.surface,
+            justifyContent: "center",
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: colors.border,
+            marginLeft: 8,
+          }}
+        >
+          <MaterialIcons name="add" size={18} color={colors.primary} />
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 }

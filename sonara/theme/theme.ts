@@ -29,3 +29,6 @@ export const theme = {
     },
   },
 };
+
+// Simple hook for using theme in components
+export const useTheme = () => theme;

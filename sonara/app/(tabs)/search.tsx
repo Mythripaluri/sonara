@@ -4,11 +4,13 @@ import { useRouter } from "expo-router";
 import ArtistItem from "../../components/ArtistItem";
 import Seo from "../../components/Seo";
 import SongItem from "../../components/SongItem";
+import { AddToPlaylistModal } from "../../components/AddToPlaylistModal";
 import { useDebounce } from "../../hooks/useDebounce";
 import { usePlayer } from "../../context/PlayerContext";
 import { useMusicCatalog } from "../../hooks/useMusicCatalog";
 import { buildTrackFromSearchResult, searchVideos, type SearchResult } from "../../services/videoSearchService";
 import { colors } from "../../theme/colors";
+import type { Track } from "../../constants/catalog";
 
 export default function SearchScreen() {
   const router = useRouter();
@@ -21,6 +23,8 @@ export default function SearchScreen() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [addToPlaylistModalVisible, setAddToPlaylistModalVisible] = useState(false);
+  const [selectedSongForPlaylist, setSelectedSongForPlaylist] = useState<Track | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -221,9 +225,26 @@ export default function SearchScreen() {
               song={song}
               onPress={(track) => playSong(track, featuredTracks)}
               highlightQuery={query}
+              onAddToPlaylist={(track) => {
+                setSelectedSongForPlaylist(track);
+                setAddToPlaylistModalVisible(true);
+              }}
             />
           ))
         )}
+
+        <AddToPlaylistModal
+          visible={addToPlaylistModalVisible}
+          song={selectedSongForPlaylist}
+          onClose={() => {
+            setAddToPlaylistModalVisible(false);
+            setSelectedSongForPlaylist(null);
+          }}
+          onSuccess={(playlistName) => {
+            // Could show a toast here in the future
+            console.log(`Added to ${playlistName}`);
+          }}
+        />
     </ScrollView>
   );
 }
