@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
 const ytdlp = require("yt-dlp-exec");
+const YTMusic = require("ytmusic-api");
 
 const app = express();
 app.use(cors());
@@ -13,11 +14,42 @@ let tokenExpiry = 0;
 let spotifyBlockedUntil = 0;
 
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6;
+const STREAM_URL_TTL_MS = 1000 * 60 * 3;
 const SPOTIFY_BLOCK_TTL_MS = 1000 * 60 * 60 * 6;
 const RESOLVE_TIMEOUT_MS = 7000;
 const matchCache = new Map();
 const queryVideoCache = new Map();
 const streamResultCache = new Map();
+
+const ytmusic = new YTMusic();
+let ytmusicReady = false;
+let ytmusicInitPromise = null;
+
+const ensureYTMusicReady = async () => {
+  if (ytmusicReady) return true;
+
+  if (!ytmusicInitPromise) {
+    ytmusicInitPromise = ytmusic
+      .initialize({
+        HL: "en",
+        GL: "US",
+      })
+      .then(() => {
+        ytmusicReady = true;
+      })
+      .catch((error) => {
+        ytmusicInitPromise = null;
+        throw error;
+      });
+  }
+
+  try {
+    await ytmusicInitPromise;
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 const normalizeForMatch = (str) => {
   return (str || "")
@@ -49,6 +81,20 @@ const toTitleCase = (str) =>
 
 const removeNoise = (str) =>
   (str || "").replace(/\b(remix|live|version|official)\b/gi, " ");
+
+const cleanDisplayTitle = (title) =>
+  (title || "")
+    .replace(/&#39;/g, "'")
+    .replace(/\(.*?lyrics.*?\)/gi, "")
+    .replace(/\[.*?lyrics.*?\]/gi, "")
+    .replace(/official video/gi, "")
+    .replace(/official mv/gi, "")
+    .replace(/color coded/gi, "")
+    .replace(/lyrics/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const cleanDisplayArtist = (artist) => cleanDisplayTitle(artist);
 
 const cleanQuery = (title, artist) => {
   let t = title || "";
@@ -175,6 +221,29 @@ const getCachedStreamResult = (videoId) => {
   return cached;
 };
 
+const getCachedQueryVideoId = (queryKey) => {
+  if (!queryKey) return null;
+
+  const cached = queryVideoCache.get(queryKey);
+  if (!cached) return null;
+
+  if (Date.now() > cached.expiresAt) {
+    queryVideoCache.delete(queryKey);
+    return null;
+  }
+
+  return cached.videoId;
+};
+
+const setCachedQueryVideoId = (queryKey, videoId) => {
+  if (!queryKey || !videoId) return;
+
+  queryVideoCache.set(queryKey, {
+    videoId,
+    expiresAt: Date.now() + CACHE_TTL_MS,
+  });
+};
+
 const withTimeout = (promise, ms = RESOLVE_TIMEOUT_MS) =>
   Promise.race([
     promise,
@@ -197,7 +266,7 @@ const setCachedStreamResult = (videoId, result) => {
 
   streamResultCache.set(videoId, {
     ...result,
-    expiresAt: Date.now() + CACHE_TTL_MS,
+    expiresAt: Date.now() + STREAM_URL_TTL_MS,
   });
 };
 
@@ -477,40 +546,33 @@ const searchItunesAlbums = async (query) => {
   }
 };
 
-const searchYouTubeAPI = async (query) => {
-  if (!process.env.YT_API_KEY) {
-    const fallback = await ytdlp(`ytsearch5:${query}`, {
-      dumpSingleJson: true,
-      ignoreErrors: true,
-      noWarnings: true,
-    });
+const searchYtMusicSongs = async (query) => {
+  const ready = await ensureYTMusicReady();
+  if (!ready) return [];
 
-    return (fallback.entries || [])
-      .map((item) => ({
-        videoId: item?.id,
-        title: item?.title || "",
-        channel: item?.uploader || item?.channel || "",
-        thumbnail: item?.thumbnail || item?.thumbnails?.[0]?.url || "",
-      }))
-      .filter((item) => item.videoId);
+  try {
+    const songs = await ytmusic.searchSongs(query);
+
+    return (songs || [])
+      .map((item) => {
+        const title = item?.title || item?.name || "";
+        const artistName =
+          item?.artists?.[0]?.name ||
+          item?.artist?.name ||
+          "Unknown";
+
+        return {
+          videoId: item?.videoId,
+          title: cleanDisplayTitle(title),
+          artist: cleanDisplayArtist(artistName),
+          thumbnail: item?.thumbnails?.[0]?.url || "",
+          duration: item?.duration || 0,
+        };
+      })
+      .filter((item) => item.videoId && item.title);
+  } catch {
+    return [];
   }
-
-  const res = await axios.get("https://www.googleapis.com/youtube/v3/search", {
-    params: {
-      key: process.env.YT_API_KEY,
-      q: query,
-      part: "snippet",
-      type: "video",
-      maxResults: 10,
-    },
-  });
-
-  return (res.data?.items || []).map((item) => ({
-    videoId: item?.id?.videoId,
-    title: item?.snippet?.title || "",
-    channel: item?.snippet?.channelTitle || "",
-    thumbnail: item?.snippet?.thumbnails?.medium?.url || item?.snippet?.thumbnails?.default?.url || "",
-  })).filter((item) => item.videoId);
 };
 
 const buildSearchQueries = (query) => {
@@ -531,7 +593,7 @@ const searchVideoCandidatesFast = async (query) => {
 
   for (const q of queries) {
     try {
-      const results = await searchYouTubeAPI(q);
+      const results = await searchYtMusicSongs(q);
       allCandidates.push(...results);
     } catch {
       // Continue with other queries.
@@ -650,16 +712,14 @@ app.get("/search", async (req, res) => {
   try {
     let candidates = [];
 
-    // 1) Try fast API-backed search when available.
-    if (process.env.YT_API_KEY) {
-      try {
-        candidates = await searchVideoCandidatesFast(query);
-      } catch {
-        console.log("Fast search failed");
-      }
+    // 1) Prefer YT Music metadata to improve result quality.
+    try {
+      candidates = await searchVideoCandidatesFast(query);
+    } catch {
+      console.log("YT Music search failed");
     }
 
-    // 2) Always fallback to yt-dlp helper search if fast search produced no results.
+    // 2) Fallback to yt-dlp helper search if metadata search produced no results.
     if (!candidates.length) {
       try {
         console.log("[search] Falling back to yt-dlp (helper)");
@@ -683,7 +743,8 @@ app.get("/search", async (req, res) => {
         candidates = (yt?.entries || [])
           .map((entry) => ({
             id: entry?.id,
-            title: entry?.title || "",
+            title: cleanDisplayTitle(entry?.title || ""),
+            artist: cleanDisplayArtist(entry?.uploader || entry?.channel || ""),
             thumbnail: entry?.thumbnail || entry?.thumbnails?.[0]?.url || "",
           }))
           .filter((entry) => entry.id);
@@ -711,7 +772,8 @@ app.get("/search", async (req, res) => {
     }
 
     const payload = candidates.slice(0, 5).map((candidate) => ({
-      title: candidate.title,
+      title: cleanDisplayTitle(candidate.title || ""),
+      artist: cleanDisplayArtist(candidate.artist || candidate.channel || candidate.uploader || ""),
       videoId: candidate.videoId || candidate.id,
       thumbnail: candidate.thumbnail || candidate.thumbnails?.[0]?.url || "",
       preResolved: Boolean(getCachedStreamResult(candidate.videoId || candidate.id)),
@@ -816,7 +878,7 @@ async function resolveAudioFromVideoId(videoId) {
     ignoreErrors: true,
     noCheckCertificates: true,
     preferFreeFormats: true,
-    format: "bestaudio[ext=m4a]/bestaudio/best",
+    format: "ba[ext=m4a]/ba",
   });
 
   const audioFormat =
@@ -830,11 +892,106 @@ async function resolveAudioFromVideoId(videoId) {
 
   return {
     audioUrl,
-    title: info.title,
+    title: cleanDisplayTitle(info.title),
+    artist: cleanDisplayArtist(info.uploader || info.channel || ""),
     thumbnail: info.thumbnail || info.thumbnails?.[0]?.url || "",
     duration: info.duration,
   };
 }
+
+app.get("/audio/:id", async (req, res) => {
+  const videoId = String(req.params.id || "").trim();
+  const forceRefresh = String(req.query.refresh || "") === "1";
+
+  if (!videoId) {
+    return res.status(400).json({ error: "Missing video id" });
+  }
+
+  try {
+    const resolveSource = async (skipCache = false) => {
+      const cached = !skipCache && !forceRefresh ? getCachedStreamResult(videoId) : null;
+      if (cached?.audioUrl) {
+        return cached;
+      }
+
+      const resolved = await resolveAudioWithFallback(videoId);
+      setCachedStreamResult(videoId, resolved);
+      return resolved;
+    };
+
+    let resolved = await resolveSource(false);
+
+    const proxyFromResolved = async () => {
+      // ✅ FIX 1: Forward Range header to upstream for proper streaming
+      const range = req.headers.range;
+      return axios.get(resolved.audioUrl, {
+        responseType: "stream",
+        timeout: 20000,
+        headers: {
+          "User-Agent": "Mozilla/5.0",
+          ...(range ? { Range: range } : {}),
+        },
+      });
+    };
+
+    let upstream;
+    try {
+      upstream = await proxyFromResolved();
+    } catch (firstError) {
+      const status = firstError?.response?.status;
+      const isExpired = status === 403 || status === 410;
+
+      if (!isExpired) {
+        throw firstError;
+      }
+
+      // Retry once with a fresh yt-dlp resolve when the source URL expires.
+      resolved = await resolveSource(true);
+      upstream = await proxyFromResolved();
+    }
+
+    // ✅ FIX 1: Handle HTTP Range requests for proper streaming (206 Partial Content)
+    const range = req.headers.range;
+    const contentType = upstream.headers["content-type"] || "audio/mp4";
+    const contentLength = upstream.headers["content-length"];
+    const contentRange = upstream.headers["content-range"];
+
+    // Respond with 206 if Range request, otherwise 200
+    res.status(range ? 206 : 200);
+
+    // Forward critical headers for streaming compatibility
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Accept-Ranges", "bytes");
+
+    if (contentLength) {
+      res.setHeader("Content-Length", contentLength);
+    }
+
+    if (contentRange) {
+      res.setHeader("Content-Range", contentRange);
+    }
+
+    upstream.data.on("error", () => {
+      if (!res.headersSent) {
+        res.status(502).end();
+      } else {
+        res.end();
+      }
+    });
+
+    req.on("close", () => {
+      if (upstream?.data?.destroy) {
+        upstream.data.destroy();
+      }
+    });
+
+    upstream.data.pipe(res);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to proxy audio";
+    res.status(500).json({ error: "Failed to stream audio", details: message });
+  }
+});
 
 app.get("/stream", async (req, res) => {
   const query = req.query.q;
@@ -857,6 +1014,7 @@ app.get("/stream", async (req, res) => {
         return res.json({
           url: cached.audioUrl,
           title: cached.title,
+          artist: cached.artist || "",
           image: cached.thumbnail || "",
           provider: "cache",
           duration: cached.duration,
@@ -872,6 +1030,7 @@ app.get("/stream", async (req, res) => {
       return res.json({
         url: resolved.audioUrl,
         title: resolved.title,
+        artist: resolved.artist || "",
         image: resolved.thumbnail || "",
         provider: "yt-optimized",
         duration: resolved.duration,
@@ -880,7 +1039,7 @@ app.get("/stream", async (req, res) => {
     }
 
     const normalizedQuery = normalizeForMatch(String(query));
-    const cachedQueryVideoId = queryVideoCache.get(normalizedQuery);
+    const cachedQueryVideoId = getCachedQueryVideoId(normalizedQuery);
 
     if (cachedQueryVideoId) {
       try {
@@ -890,6 +1049,7 @@ app.get("/stream", async (req, res) => {
         return res.json({
           url: fromQueryCache.audioUrl,
           title: fromQueryCache.title,
+          artist: fromQueryCache.artist || "",
           image: fromQueryCache.thumbnail || "",
           provider: "cache",
           duration: fromQueryCache.duration,
@@ -938,6 +1098,7 @@ app.get("/stream", async (req, res) => {
           return res.json({
             url: fromCache.audioUrl,
             title: fromCache.title,
+            artist: fromCache.artist || "",
             image: fromCache.thumbnail || "",
             provider: "cache",
             duration: fromCache.duration,
@@ -974,6 +1135,7 @@ app.get("/stream", async (req, res) => {
         return res.json({
           url: cachedResolved.audioUrl,
           title: cachedResolved.title,
+          artist: cachedResolved.artist || "",
           provider: "cache",
           duration: cachedResolved.duration,
         });
@@ -994,6 +1156,7 @@ app.get("/stream", async (req, res) => {
           return res.json({
             url: fromCache.audioUrl,
             title: fromCache.title,
+            artist: fromCache.artist || "",
             provider: "spotify+yt+cache",
             duration: fromCache.duration,
             videoId: cached.videoId,
@@ -1060,12 +1223,13 @@ app.get("/stream", async (req, res) => {
         });
       }
 
-      queryVideoCache.set(normalizedQuery, success.videoId);
+      setCachedQueryVideoId(normalizedQuery, success.videoId);
       setCachedStreamResult(success.videoId, success.resolved);
 
       return res.json({
         url: success.resolved.audioUrl,
         title: success.resolved.title,
+        artist: success.resolved.artist || "",
         image: success.resolved.thumbnail || "",
         provider: "yt-optimized",
         duration: success.resolved.duration,
