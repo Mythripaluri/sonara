@@ -2,11 +2,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { Track } from "../constants/catalog";
+import { normalizeTrackForPlayer } from "../utils/normalizeTrackForPlayer";
 
 export type Playlist = {
   id: string;
   name: string;
   description?: string;
+  artwork: string;
   songs: Track[];
   createdAt: number;
   updatedAt: number;
@@ -26,6 +28,7 @@ export type PlaylistState = {
   addSongToPlaylist: (playlistId: string, song: Track) => void;
   removeSongFromPlaylist: (playlistId: string, songId: string) => void;
   reorderSongsInPlaylist: (playlistId: string, fromIndex: number, toIndex: number) => void;
+  replacePlaylistSongs: (playlistId: string, songs: Track[]) => void;
 
   // Getters
   getPlaylist: (playlistId: string) => Playlist | undefined;
@@ -34,6 +37,9 @@ export type PlaylistState = {
 
 const generateId = () => `pl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+const buildPlaylistArtwork = (playlistId: string) =>
+  `https://picsum.photos/seed/${playlistId}/800/800`;
+
 export const usePlaylistStore = create<PlaylistState>()(
   persist(
     (set, get) => ({
@@ -41,10 +47,12 @@ export const usePlaylistStore = create<PlaylistState>()(
       isLoaded: false,
 
       createPlaylist: (name: string, description?: string) => {
+        const id = generateId();
         const newPlaylist: Playlist = {
-          id: generateId(),
+          id,
           name,
           description,
+          artwork: buildPlaylistArtwork(id),
           songs: [],
           createdAt: Date.now(),
           updatedAt: Date.now(),
@@ -92,16 +100,19 @@ export const usePlaylistStore = create<PlaylistState>()(
       },
 
       addSongToPlaylist: (playlistId: string, song: Track) => {
+        const normalizedSong = normalizeTrackForPlayer(song);
+        if (!normalizedSong?.id) return;
+
         set((state) => ({
           playlists: state.playlists.map((p) => {
             if (p.id === playlistId) {
               // Avoid duplicates
-              const songExists = p.songs.some((s) => s.id === song.id);
+              const songExists = p.songs.some((s) => s.id === normalizedSong.id);
               if (songExists) return p;
 
               return {
                 ...p,
-                songs: [...p.songs, song],
+                songs: [...p.songs, normalizedSong],
                 updatedAt: Date.now(),
               };
             }
@@ -140,6 +151,24 @@ export const usePlaylistStore = create<PlaylistState>()(
             }
             return p;
           }),
+        }));
+      },
+
+      replacePlaylistSongs: (playlistId: string, songs: Track[]) => {
+        const normalizedSongs = songs
+          .map((song) => normalizeTrackForPlayer(song))
+          .filter((song) => Boolean(song?.id) && Boolean(song?.title));
+
+        set((state) => ({
+          playlists: state.playlists.map((playlist) =>
+            playlist.id === playlistId
+              ? {
+                  ...playlist,
+                  songs: normalizedSongs,
+                  updatedAt: Date.now(),
+                }
+              : playlist,
+          ),
         }));
       },
 

@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import {
+  ImageBackground,
   Modal,
   Pressable,
   Text,
@@ -76,6 +77,28 @@ export const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
             paddingBottom: 24,
           }}
         >
+          <View style={{ alignItems: "center", paddingHorizontal: 16, marginBottom: 18 }}>
+            <ImageBackground
+              source={{ uri: "https://picsum.photos/seed/sonara-playlist-cover/800/800" }}
+              imageStyle={{ borderRadius: 20 }}
+              style={{ width: 132, height: 132, borderRadius: 20, overflow: "hidden" }}
+            >
+              <View
+                style={{
+                  flex: 1,
+                  backgroundColor: "rgba(0, 0, 0, 0.24)",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <MaterialIcons name="image" size={36} color="#fff" />
+                <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700", marginTop: 8 }}>
+                  Cover placeholder
+                </Text>
+              </View>
+            </ImageBackground>
+          </View>
+
           {/* Header */}
           <View
             style={{

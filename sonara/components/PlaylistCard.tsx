@@ -1,7 +1,6 @@
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { ImageBackground, Pressable, Text, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { theme } from "../theme/theme";
 import { colors } from "../theme/colors";
 import type { Playlist } from "../store/playlistStore";
 
@@ -16,7 +15,6 @@ export const PlaylistCard: React.FC<PlaylistCardProps> = ({
   onPress,
   onLongPress,
 }) => {
-
   const songCount = playlist.songs.length;
   const timeAgo = formatTimeAgo(playlist.createdAt);
 
@@ -38,20 +36,27 @@ export const PlaylistCard: React.FC<PlaylistCardProps> = ({
         },
       ]}
     >
-      {/* Playlist Icon */}
-      <View
+      <ImageBackground
+        source={{ uri: playlist.artwork }}
         style={{
           width: 50,
           height: 50,
           borderRadius: 4,
-          backgroundColor: colors.surface,
-          justifyContent: "center",
-          alignItems: "center",
           marginRight: 12,
+          overflow: "hidden",
         }}
       >
-        <MaterialIcons name="playlist-play" size={28} color={colors.active} />
-      </View>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0, 0, 0, 0.28)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <MaterialIcons name="playlist-play" size={28} color="#fff" />
+        </View>
+      </ImageBackground>
 
       {/* Playlist Info */}
       <View style={{ flex: 1 }}>

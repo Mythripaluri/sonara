@@ -87,6 +87,7 @@ import { type Track } from "../constants/catalog";
 type AudioResolverResponse = {
   url?: string;
   title?: string;
+  artist?: string;
   provider?: string;
   videoId?: string;
 };
@@ -111,6 +112,19 @@ type GetAudioUrlOptions = {
   forceRefresh?: boolean;
 };
 
+const resolvedUrlCache = new Map<string, string>();
+const pendingResolutionCache = new Map<string, Promise<string>>();
+const STREAM_PROXY_TTL_MS = 1000 * 60 * 3;
+const resolvedAtCache = new Map<string, number>();
+
+const getResolutionCacheKey = (track: Track) => {
+  if (track.videoId && track.videoId.length > 0) {
+    return `video:${track.videoId}`;
+  }
+
+  return `query:${track.title || ""}:${track.artist || ""}`;
+};
+
 const buildStreamEndpoint = (track: Track, options: GetAudioUrlOptions = {}) => {
   const backendUrl = getBackendStreamUrl();
   const refreshParam = options.forceRefresh ? "&refresh=1" : "";
@@ -123,26 +137,94 @@ const buildStreamEndpoint = (track: Track, options: GetAudioUrlOptions = {}) => 
   return `${backendUrl}/stream?q=${encodeURIComponent(searchQuery)}${refreshParam}`;
 };
 
+const buildAudioProxyEndpoint = (videoId: string, options: GetAudioUrlOptions = {}) => {
+  const backendUrl = getBackendStreamUrl();
+  const refreshParam = options.forceRefresh ? "?refresh=1" : "";
+  return `${backendUrl}/audio/${encodeURIComponent(videoId)}${refreshParam}`;
+};
+
 export const getAudioUrl = async (
   track: Track,
   options: GetAudioUrlOptions = {},
 ): Promise<string> => {
-  const endpoint = buildStreamEndpoint(track, options);
-  const response = await fetch(endpoint);
+  const cacheKey = getResolutionCacheKey(track);
 
-  if (!response.ok) {
-    throw new Error(`Backend error: ${response.status}`);
+  if (!options.forceRefresh) {
+    const cached = resolvedUrlCache.get(cacheKey);
+    const cachedAt = resolvedAtCache.get(cacheKey) || 0;
+    const isExpired = Date.now() - cachedAt > STREAM_PROXY_TTL_MS;
+
+    if (cached && !isExpired) {
+      return cached;
+    }
+
+    if (cached && isExpired) {
+      resolvedUrlCache.delete(cacheKey);
+      resolvedAtCache.delete(cacheKey);
+    }
+
+    const pending = pendingResolutionCache.get(cacheKey);
+    if (pending) {
+      return pending;
+    }
   }
 
-  const payload = (await response.json()) as AudioResolverResponse;
+  const request = (async () => {
+    try {
+      if (track.videoId && track.videoId.length > 0) {
+        const proxyUrl = buildAudioProxyEndpoint(track.videoId, options);
+        resolvedUrlCache.set(cacheKey, proxyUrl);
+        resolvedAtCache.set(cacheKey, Date.now());
+        return proxyUrl;
+      }
 
-  if (payload.url && payload.url.length > 0) {
-    return payload.url;
-  }
+      const endpoint = buildStreamEndpoint(track, options);
+      const response = await fetch(endpoint);
 
-  if (track.url && track.url.length > 0) {
-    return track.url;
-  }
+      if (!response.ok) {
+        throw new Error(`Backend error: ${response.status}`);
+      }
 
-  throw new Error("No audio URL returned from backend");
+      const payload = (await response.json()) as AudioResolverResponse;
+      const resolvedVideoId = payload.videoId || track.videoId;
+
+      if (resolvedVideoId && resolvedVideoId.length > 0) {
+        const proxyUrl = buildAudioProxyEndpoint(resolvedVideoId, options);
+        resolvedUrlCache.set(cacheKey, proxyUrl);
+        resolvedAtCache.set(cacheKey, Date.now());
+        return proxyUrl;
+      }
+
+      if (payload.url && payload.url.length > 0) {
+        resolvedUrlCache.set(cacheKey, payload.url);
+        resolvedAtCache.set(cacheKey, Date.now());
+        return payload.url;
+      }
+
+      if (track.url && track.url.length > 0) {
+        resolvedUrlCache.set(cacheKey, track.url);
+        resolvedAtCache.set(cacheKey, Date.now());
+        return track.url;
+      }
+
+      throw new Error("No audio URL returned from backend");
+    } catch (error) {
+      if (track.url && track.url.length > 0) {
+        resolvedUrlCache.set(cacheKey, track.url);
+        resolvedAtCache.set(cacheKey, Date.now());
+        return track.url;
+      }
+
+      throw error instanceof Error ? error : new Error("Unable to resolve audio URL");
+    } finally {
+      pendingResolutionCache.delete(cacheKey);
+    }
+  })();
+
+  pendingResolutionCache.set(cacheKey, request);
+  return request;
+};
+
+export const prefetchAudioUrl = (track: Track, options: GetAudioUrlOptions = {}) => {
+  void getAudioUrl(track, options).catch(() => {});
 };

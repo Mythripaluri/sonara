@@ -4,6 +4,7 @@ import { Image, Pressable, Text, View } from "react-native";
 import { albums, tracks } from "../../constants/catalog";
 import { usePlayer } from "../../context/PlayerContext";
 import { colors } from "../../theme/colors";
+import { normalizeTrackForPlayer } from "../../utils/normalizeTrackForPlayer";
 
 export default function AlbumDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -37,7 +38,7 @@ export default function AlbumDetailScreen() {
 
       <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: "700", marginTop: 24, marginBottom: 12 }}>Tracks</Text>
       {albumSongs.map((song) => (
-        <Pressable key={song.id} onPress={() => playSong(song, tracks)} style={{ backgroundColor: colors.surface, borderRadius: 18, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
+        <Pressable key={song.id} onPress={() => playSong(normalizeTrackForPlayer(song), tracks.map((item) => normalizeTrackForPlayer(item)))} style={{ backgroundColor: colors.surface, borderRadius: 18, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
           <Text style={{ color: colors.textPrimary, fontWeight: "700" }}>{song.title}</Text>
           <Text style={{ color: colors.textMuted, marginTop: 4 }}>{song.genre}</Text>
         </Pressable>

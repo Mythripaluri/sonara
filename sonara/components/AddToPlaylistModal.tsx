@@ -6,11 +6,12 @@ import {
   View,
   FlatList,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 import { usePlaylist } from "../hooks/usePlaylist";
+import { CreatePlaylistModal } from "./CreatePlaylistModal";
+import { useAppMessage } from "../context/AppMessageContext";
 import type { Track } from "../constants/catalog";
 
 interface AddToPlaylistModalProps {
@@ -27,6 +28,8 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
   onSuccess,
 }) => {
   const { playlists, addSong, createPlaylist } = usePlaylist();
+  const { showMessage } = useAppMessage();
+  const [createPlaylistVisible, setCreatePlaylistVisible] = React.useState(false);
 
   const handleAddToPlaylist = (playlistId: string) => {
     if (!song) return;
@@ -36,41 +39,19 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
 
     // Check if song already in playlist
     if (playlist.songs.some((s) => s.id === song.id)) {
-      Alert.alert("Already Added", "This song is already in the playlist");
+      showMessage(`Song is already in ${playlist.name}`);
       return;
     }
 
     addSong(playlistId, song);
-    Alert.alert("Success", `Added to ${playlist.name}`);
+    showMessage(`Added to ${playlist.name}`);
     onSuccess?.(playlist.name);
     onClose();
   };
 
   const handleCreateAndAdd = () => {
     if (!song) return;
-
-    Alert.prompt(
-      "Create New Playlist",
-      "Enter playlist name",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Create",
-          onPress: (playlistName) => {
-            if (!playlistName?.trim()) return;
-            const newPlaylist = createPlaylist(playlistName.trim());
-            addSong(newPlaylist.id, song);
-            Alert.alert("Success", `Created and added to ${playlistName}`);
-            onSuccess?.(playlistName);
-            onClose();
-          },
-        },
-      ],
-      "plain-text"
-    );
+    setCreatePlaylistVisible(true);
   };
 
   return (
@@ -228,6 +209,21 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
           )}
         </View>
       </View>
+
+      <CreatePlaylistModal
+        visible={createPlaylistVisible}
+        onClose={() => setCreatePlaylistVisible(false)}
+        onCreatePlaylist={(name, description) => {
+          if (!song) return;
+
+          const newPlaylist = createPlaylist(name, description);
+          addSong(newPlaylist.id, song);
+          showMessage(`Created playlist and added to ${name}`);
+          onSuccess?.(name);
+          setCreatePlaylistVisible(false);
+          onClose();
+        }}
+      />
     </Modal>
   );
 };

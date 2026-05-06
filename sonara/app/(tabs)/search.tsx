@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import ArtistItem from "../../components/ArtistItem";
 import Seo from "../../components/Seo";
 import SongItem from "../../components/SongItem";
 import { AddToPlaylistModal } from "../../components/AddToPlaylistModal";
 import { useDebounce } from "../../hooks/useDebounce";
+import { useRecentSearches } from "../../hooks/useRecentSearches";
 import { usePlayer } from "../../context/PlayerContext";
 import { useMusicCatalog } from "../../hooks/useMusicCatalog";
 import { buildTrackFromSearchResult, searchVideos, type SearchResult } from "../../services/videoSearchService";
 import { colors } from "../../theme/colors";
+import { normalizeTrackForPlayer } from "../../utils/normalizeTrackForPlayer";
+
 import type { Track } from "../../constants/catalog";
 
 export default function SearchScreen() {
@@ -17,8 +20,9 @@ export default function SearchScreen() {
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 400);
   const lastQueryRef = useRef("");
-  const { playSong } = usePlayer();
+  const { playSong, enqueueSong, enqueueNext } = usePlayer();
   const { tracks: featuredTracks } = useMusicCatalog();
+  const { recentSearches, recordSearch } = useRecentSearches();
   const [isFocused, setIsFocused] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -53,6 +57,7 @@ export default function SearchScreen() {
         const nextResults = await searchVideos(cleaned);
         if (!cancelled) {
           setResults(nextResults);
+          recordSearch(cleaned);
         }
       } catch (error) {
         if (!cancelled) {
@@ -80,7 +85,7 @@ export default function SearchScreen() {
 
     return featuredTracks.filter((song) =>
       [song.title, song.artist, song.album, song.genre]
-        .filter(Boolean)
+        .filter((value): value is string => Boolean(value))
         .some((value) => value.toLowerCase().includes(lowerQuery)),
     );
   }, [featuredTracks, query]);
@@ -89,9 +94,16 @@ export default function SearchScreen() {
     new Map(featuredTracks.map((track) => [track.artist, track])).values(),
   ).slice(0, 6);
 
+  const resultTracks = useMemo(
+    () => results.map(buildTrackFromSearchResult),
+    [results],
+  );
+
   const playResolvedResult = async (result: SearchResult) => {
     const track = buildTrackFromSearchResult(result);
-    await playSong(track, [track]);
+    const normalizedTrack = normalizeTrackForPlayer(track);
+    const normalizedQueue = (resultTracks.length > 0 ? resultTracks : [track]).map((item) => normalizeTrackForPlayer(item));
+    await playSong(normalizedTrack, normalizedQueue);
   };
 
   return (
@@ -156,6 +168,32 @@ export default function SearchScreen() {
               />
             ))}
           </ScrollView>
+
+          {recentSearches.length > 0 ? (
+            <>
+              <Text style={{ color: colors.textMuted, fontSize: 12, letterSpacing: 1.1, paddingHorizontal: 20, marginTop: 28, marginBottom: 12 }}>
+                RECENT SEARCHES
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}>
+                {recentSearches.map((item) => (
+                  <Pressable
+                    key={item}
+                    onPress={() => setQuery(item)}
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      backgroundColor: colors.surface,
+                    }}
+                  >
+                    <Text style={{ color: colors.textPrimary, fontWeight: "600" }}>{item}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </>
+          ) : null}
         </>
       ) : null}
 
@@ -182,34 +220,42 @@ export default function SearchScreen() {
               ) : null}
             </View>
           ) : (
-            results.map((result, index) => (
-              <Pressable
-                key={result.videoId}
-                onPress={() => void playResolvedResult(result)}
-                style={{
-                  marginHorizontal: 20,
-                  marginTop: index === 0 ? 10 : 8,
-                  padding: 16,
-                  borderRadius: 18,
-                  backgroundColor: colors.surface,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                }}
-              >
-                <Image
-                  source={{ uri: result.thumbnail || featuredTracks[0]?.artwork || "" }}
-                  style={{ width: 64, height: 64, borderRadius: 14, backgroundColor: colors.border }}
+            resultTracks.map((track, index) => {
+              const sourceResult = results[index];
+
+              return (
+                <SongItem
+                  key={track.id}
+                  song={track}
+                  onPress={(song: Track) => playSong(normalizeTrackForPlayer(song), resultTracks.map((item) => normalizeTrackForPlayer(item)))}
+                  menuActions={[
+                    {
+                      label: "Play now",
+                      icon: "play-arrow",
+                      onPress: () => void playResolvedResult(sourceResult),
+                    },
+                    {
+                      label: "Queue song",
+                      icon: "queue-music",
+                      onPress: () => enqueueSong(normalizeTrackForPlayer(track)),
+                    },
+                    {
+                      label: "Queue next",
+                      icon: "queue",
+                      onPress: () => enqueueNext(normalizeTrackForPlayer(track)),
+                    },
+                    {
+                      label: "Add to playlist",
+                      icon: "playlist-add",
+                      onPress: () => {
+                        setSelectedSongForPlaylist(track);
+                        setAddToPlaylistModalVisible(true);
+                      },
+                    },
+                  ]}
                 />
-                <View style={{ flex: 1, marginLeft: 14 }}>
-                  <Text style={{ color: colors.textPrimary, fontWeight: "700", fontSize: 15 }}>
-                    {result.title}
-                  </Text>
-                  <Text style={{ color: colors.textMuted, marginTop: 6, fontSize: 12 }}>
-                    Tap to fetch a fresh stream and play
-                  </Text>
-                </View>
-              </Pressable>
-            ))
+              );
+            })
           )
         ) : filteredSongs.length === 0 ? (
           <View style={{ marginHorizontal: 20, marginTop: 10, padding: 20, borderRadius: 18, backgroundColor: colors.surface }}>
@@ -223,9 +269,13 @@ export default function SearchScreen() {
             <SongItem
               key={song.id}
               song={song}
-              onPress={(track) => playSong(track, featuredTracks)}
+              onPress={(track: Track) => playSong(normalizeTrackForPlayer(track), featuredTracks.map((item) => normalizeTrackForPlayer(item)))}
+              onLongPress={(track: Track) => {
+                setSelectedSongForPlaylist(track);
+                setAddToPlaylistModalVisible(true);
+              }}
               highlightQuery={query}
-              onAddToPlaylist={(track) => {
+              onAddToPlaylist={(track: Track) => {
                 setSelectedSongForPlaylist(track);
                 setAddToPlaylistModalVisible(true);
               }}
@@ -239,10 +289,6 @@ export default function SearchScreen() {
           onClose={() => {
             setAddToPlaylistModalVisible(false);
             setSelectedSongForPlaylist(null);
-          }}
-          onSuccess={(playlistName) => {
-            // Could show a toast here in the future
-            console.log(`Added to ${playlistName}`);
           }}
         />
     </ScrollView>

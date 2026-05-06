@@ -3,6 +3,7 @@ import { tracks as fallbackTracks, type Track } from "../constants/catalog";
 
 export type SearchResult = {
   title: string;
+  artist: string;
   videoId: string;
   thumbnail: string;
   preResolved?: boolean;
@@ -11,6 +12,7 @@ export type SearchResult = {
 type StreamResponse = {
   url?: string;
   title?: string;
+  artist?: string;
   duration?: number;
   provider?: string;
   image?: string;
@@ -54,7 +56,7 @@ const setCachedSearchResults = (query: string, results: SearchResult[]) => {
 const buildResolvedTrack = (videoId: string, response: StreamResponse, fallbackTitle: string): Track => ({
   id: videoId,
   title: response.title || fallbackTitle || "Unknown track",
-  artist: "",
+  artist: response.artist || "",
   artwork: response.image || fallbackTracks[0]?.artwork || "",
   url: response.url || "",
   resolvedAudioUrl: response.url || "",
@@ -66,7 +68,7 @@ const buildResolvedTrack = (videoId: string, response: StreamResponse, fallbackT
 export const buildTrackFromSearchResult = (result: SearchResult): Track => ({
   id: result.videoId,
   title: result.title || "Unknown track",
-  artist: "",
+  artist: result.artist || "",
   artwork: result.thumbnail || fallbackTracks[0]?.artwork || "",
   url: "",
   source: "resolved",

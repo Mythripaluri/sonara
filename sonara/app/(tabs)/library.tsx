@@ -1,12 +1,15 @@
 import { ScrollView, Text, View } from "react-native";
 import SongItem from "../../components/SongItem";
 import AlbumCard from "../../components/AlbumCard";
-import { playlists } from "../../constants/catalog";
 import { usePlayer } from "../../context/PlayerContext";
+import { usePlaylist } from "../../hooks/usePlaylist";
 import { colors } from "../../theme/colors";
+import { normalizeTrack } from "../../utils/cleanTitle";
+import { normalizeTrackForPlayer } from "../../utils/normalizeTrackForPlayer";
 
 export default function LibraryScreen() {
   const { likedSongIds, recentlyPlayed, allSongs, playSong, totalPlayTimeSeconds, currentSong } = usePlayer();
+  const { playlists } = usePlaylist();
   const likedSongs = allSongs.filter((song) => likedSongIds.includes(song.id));
   const totalHours = (totalPlayTimeSeconds / 3600).toFixed(totalPlayTimeSeconds >= 3600 ? 0 : 1);
 
@@ -60,7 +63,7 @@ export default function LibraryScreen() {
           <SongItem
             key={song.id}
             song={song}
-            onPress={(track) => playSong(track, allSongs)}
+            onPress={(track) => playSong(normalizeTrackForPlayer(track), allSongs.map((item) => normalizeTrackForPlayer(item)))}
           />
         ))
       )}
@@ -81,7 +84,7 @@ export default function LibraryScreen() {
           <SongItem
             key={`recent-${song.id}`}
             song={song}
-            onPress={(track) => playSong(track, allSongs)}
+            onPress={(track) => playSong(normalizeTrackForPlayer(track), allSongs.map((item) => normalizeTrackForPlayer(item)))}
           />
         ))
       )}
@@ -104,8 +107,12 @@ export default function LibraryScreen() {
       {currentSong ? (
         <View style={{ marginHorizontal: 20, marginTop: 24, marginBottom: 16, padding: 16, borderRadius: 18, backgroundColor: "rgba(30, 58, 138, 0.10)", borderWidth: 1, borderColor: colors.player }}>
           <Text style={{ color: colors.player, fontSize: 12, fontWeight: "700" }}>ACTIVE TRACK</Text>
-          <Text style={{ color: colors.textPrimary, fontWeight: "800", marginTop: 6 }}>{currentSong.title}</Text>
-          <Text style={{ color: colors.textMuted, marginTop: 4 }}>{currentSong.artist}</Text>
+          <Text style={{ color: colors.textPrimary, fontWeight: "800", marginTop: 6 }} numberOfLines={1}>
+            {normalizeTrack(currentSong.title).title}
+          </Text>
+          <Text style={{ color: colors.textMuted, marginTop: 4 }} numberOfLines={1}>
+            {normalizeTrack(currentSong.title).artist || currentSong.artist}
+          </Text>
         </View>
       ) : null}
     </ScrollView>

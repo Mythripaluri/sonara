@@ -130,6 +130,9 @@ import SongItem from "../../components/SongItem";
 import { usePlayer } from "../../context/PlayerContext";
 import { useMusicCatalog } from "../../hooks/useMusicCatalog";
 import { colors } from "../../theme/colors";
+import { normalizeTrack } from "../../utils/cleanTitle";
+import { normalizeTrackForPlayer } from "../../utils/normalizeTrackForPlayer";
+import type { Track } from "../../constants/catalog";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -148,8 +151,8 @@ export default function HomeScreen() {
     new Map(tracks.map((track) => [track.artist, track])).values(),
   ).slice(0, 6);
 
-  const handlePlay = (song) => {
-    playSong(song, tracks);
+  const handlePlay = (song: Track) => {
+    playSong(normalizeTrackForPlayer(song), tracks.map((item) => normalizeTrackForPlayer(item)));
     router.push(`/player/${song.id}`);
   };
 
@@ -169,10 +172,10 @@ export default function HomeScreen() {
                 NOW PLAYING
               </Text>
               <Text style={{ color: colors.textPrimary, fontSize: 22, fontWeight: "800", marginTop: 8 }}>
-                {currentSong.title}
+                {normalizeTrack(currentSong.title).title}
               </Text>
               <Text style={{ color: colors.textMuted, marginTop: 6 }}>
-                {currentSong.artist} · {isPlaying ? "Playing" : "Paused"}
+                {normalizeTrack(currentSong.title).artist || currentSong.artist} · {isPlaying ? "Playing" : "Paused"}
               </Text>
             </View>
           </View>

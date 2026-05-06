@@ -54,6 +54,13 @@ export const usePlaylist = () => {
     [store]
   );
 
+  const replacePlaylistSongs = useCallback(
+    (playlistId: string, songs: Track[]) => {
+      store.replacePlaylistSongs(playlistId, songs);
+    },
+    [store],
+  );
+
   const getPlaylist = useCallback(
     (playlistId: string) => {
       return store.getPlaylist(playlistId);
@@ -71,6 +78,7 @@ export const usePlaylist = () => {
     addSong,
     removeSong,
     reorderSongs,
+    replacePlaylistSongs,
     getPlaylist,
   };
 };

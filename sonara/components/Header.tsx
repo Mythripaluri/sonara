@@ -1,6 +1,13 @@
 import { Text, View } from "react-native";
 
-export default function Header({ title, subtitle, avatarUri }) {
+
+type HeaderProps = {
+	title: string;
+	subtitle?: string;
+	avatarUri?: string;
+};
+
+export default function Header({ title, subtitle }: HeaderProps) {
 	return (
 		<View
 			style={{

@@ -14,7 +14,6 @@ import { usePlaylist } from "../../hooks/usePlaylist";
 import { PlaylistCard } from "../../components/PlaylistCard";
 import { CreatePlaylistModal } from "../../components/CreatePlaylistModal";
 import type { Playlist } from "../../store/playlistStore";
-import { useTheme } from "../../theme/theme";
 
 export default function PlaylistsScreen() {
   const router = useRouter();
@@ -26,7 +25,7 @@ export default function PlaylistsScreen() {
   } = usePlaylist();
 
   const [createModalVisible, setCreateModalVisible] = useState(false);
-  const { colors } = useTheme();
+
   const handleCreatePlaylist = (name: string, description?: string) => {
     createPlaylist(name, description);
     setCreateModalVisible(false);
@@ -186,6 +185,7 @@ export default function PlaylistsScreen() {
           )}
           contentContainerStyle={{
             paddingVertical: 8,
+            paddingBottom: 120,
           }}
           scrollIndicatorInsets={{ right: 1 }}
         />

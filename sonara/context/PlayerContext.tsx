@@ -12,7 +12,9 @@ import {
 } from "react";
 import { AppState } from "react-native";
 import { tracks as defaultQueue, type Track } from "../constants/catalog";
-import { getAudioUrl } from "../services/audioService";
+import { getAudioUrl, prefetchAudioUrl } from "../services/audioService";
+import { normalizeTrackForPlayer } from "../utils/normalizeTrackForPlayer";
+import { usePlaylistStore } from "../store/playlistStore";
 import { cycleRepeatMode, pickRandomTrackIndex, resolveTrackEndAction } from "../utils/playback";
 
 const PLAYER_STATE_KEY = "player_state";
@@ -34,6 +36,7 @@ export type PlayerState = {
   shuffleEnabled: boolean;
   repeatMode: RepeatMode;
   hydrated: boolean;
+  isBuffering: boolean;
   trackLoading: boolean;
   trackError: string | null;
 };
@@ -41,10 +44,14 @@ export type PlayerState = {
 type PlaySongOptions = {
   autoplay?: boolean;
   startPositionSeconds?: number;
+  preloadedAudioUrl?: string;
 };
 
 type PlayerContextValue = PlayerState & {
   playSong: (song: Track, nextQueue?: Track[], options?: PlaySongOptions) => Promise<void>;
+  enqueueSong: (song: Track) => void;
+  enqueueNext: (song: Track) => void;
+  replaceQueue: (tracks: Track[]) => void;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   togglePlayPause: () => Promise<void>;
@@ -78,16 +85,19 @@ const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 const normalizeQueue = (tracks: Track[] | null | undefined): Track[] =>
   Array.isArray(tracks)
-    ? tracks.filter((track) => Boolean(track?.id) && (Boolean(track?.url) || Boolean(track?.videoId)))
+    ? tracks
+        .map((track) => normalizeTrackForPlayer(track))
+        .filter((track) => Boolean(track?.id) && Boolean(track?.title))
     : [];
 
 const mergeUniqueSongs = (collections: Track[][]): Track[] => {
   const map = new Map<string, Track>();
 
   collections.flat().forEach((track) => {
-    if (!track?.id || (!track?.url && !track?.videoId)) return;
-    if (!map.has(track.id)) {
-      map.set(track.id, track);
+    const normalized = normalizeTrackForPlayer(track);
+    if (!normalized?.id || !normalized?.title) return;
+    if (!map.has(normalized.id)) {
+      map.set(normalized.id, normalized);
     }
   });
 
@@ -110,6 +120,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const soundRef = useRef<Audio.Sound | null>(null);
   const queueRef = useRef<Track[]>(defaultQueue);
   const indexRef = useRef(-1);
+  const currentIndexRef = useRef(-1);
+  const loadRequestIdRef = useRef(0);
+  const nextStreamRef = useRef<{ trackId: string; url: string } | null>(null);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playbackStartedAtRef = useRef<number | null>(null);
   const handleTrackEndRef = useRef<(() => Promise<void>) | null>(null);
@@ -127,6 +140,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isBuffering, setIsBuffering] = useState(false);
   const [trackLoading, setTrackLoading] = useState(false);
   const [trackError, setTrackError] = useState<string | null>(null);
 
@@ -134,14 +148,81 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     queueRef.current = queue;
   }, [queue]);
 
-  useEffect(() => {
-    indexRef.current = currentIndex;
-  }, [currentIndex]);
+  const playlistStore = usePlaylistStore();
 
   const allSongs = useMemo(
     () => mergeUniqueSongs([catalogSongs, recentlyPlayed, queue, defaultQueue]),
     [catalogSongs, recentlyPlayed, queue],
   );
+
+  useEffect(() => {
+    // Ensure a default "Liked Songs" playlist exists and keep it in sync with likedSongIds
+    const likedName = "Liked Songs";
+    const existing = playlistStore.getPlaylistByName(likedName);
+
+    if (!existing) {
+      const created = playlistStore.createPlaylist(likedName, "Songs you liked");
+      if (likedSongIds.length > 0) {
+        const likedTracks = allSongs.filter((t) => likedSongIds.includes(t.id));
+        playlistStore.replacePlaylistSongs(created.id, likedTracks);
+      }
+      return;
+    }
+
+    // Keep songs in the liked playlist synchronized with likedSongIds
+    const likedTracks = allSongs.filter((t) => likedSongIds.includes(t.id));
+    const same =
+      likedTracks.length === existing.songs.length &&
+      likedTracks.every((t, i) => t.id === existing.songs[i]?.id);
+
+    if (!same) {
+      playlistStore.replacePlaylistSongs(existing.id, likedTracks);
+    }
+  }, [likedSongIds, allSongs, playlistStore]);
+
+  useEffect(() => {
+    if (currentIndex < 0) {
+      nextStreamRef.current = null;
+      return;
+    }
+
+    const liveQueue = queueRef.current.length > 0 ? queueRef.current : defaultQueue;
+    const nextTrack = liveQueue[currentIndex + 1];
+    const secondNextTrack = liveQueue[currentIndex + 2];
+    let cancelled = false;
+
+    if (nextTrack) {
+      prefetchAudioUrl(nextTrack);
+      void getAudioUrl(nextTrack)
+        .then((url) => {
+          if (!cancelled) {
+            nextStreamRef.current = { trackId: nextTrack.id, url };
+          }
+        })
+        .catch(() => {
+          if (!cancelled && nextStreamRef.current?.trackId === nextTrack.id) {
+            nextStreamRef.current = null;
+          }
+        });
+    }
+
+    if (!nextTrack) {
+      nextStreamRef.current = null;
+    }
+
+    if (secondNextTrack) {
+      prefetchAudioUrl(secondNextTrack);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentIndex]);
+
+  useEffect(() => {
+    indexRef.current = currentIndex;
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
 
   const commitPlaybackTime = useCallback(() => {
     if (playbackStartedAtRef.current == null) {
@@ -195,7 +276,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const loadAndPlayTrack = useCallback(
-    async (track: Track, options: PlaySongOptions = {}) => {
+    async (track: Track, options: PlaySongOptions = {}, loadRequestId?: number) => {
+      const activeLoadRequestId = loadRequestId ?? ++loadRequestIdRef.current;
+      const isCurrentLoadRequest = () => loadRequestIdRef.current === activeLoadRequestId;
+
+      setIsBuffering(true);
       setTrackLoading(true);
       setTrackError(null);
       if (options.autoplay !== false) {
@@ -214,22 +299,74 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         };
 
         const loadFromResolvedStream = async (forceRefresh = false) => {
-          const audioUrl = await getAudioUrl(track, { forceRefresh });
+          const audioUrl =
+            !forceRefresh && options.preloadedAudioUrl
+              ? options.preloadedAudioUrl
+              : await getAudioUrl(track, { forceRefresh });
+
+          if (!audioUrl) {
+            console.warn("[Player] NO AUDIO URL", track);
+            throw new Error("No audio URL available for track");
+          }
+
           await nextSound.loadAsync({ uri: audioUrl }, playbackOptions, true);
         };
 
-        try {
-          await loadFromResolvedStream(false);
-        } catch (firstError) {
-          const isLikelyExpiredStream =
-            firstError instanceof Error && /403|forbidden/i.test(firstError.message);
+        const retryPlan = [false, false, true];
+        let lastLoadError = null;
 
-          if (!track.videoId || !isLikelyExpiredStream) {
-            throw firstError;
+        for (let attempt = 0; attempt < retryPlan.length; attempt += 1) {
+          try {
+            await loadFromResolvedStream(retryPlan[attempt]);
+
+            if (!isCurrentLoadRequest()) {
+              try {
+                await nextSound.unloadAsync();
+              } catch {
+                // Ignore cleanup failures for an abandoned load.
+              }
+
+              return;
+            }
+
+            lastLoadError = null;
+            break;
+          } catch (error) {
+            if (!isCurrentLoadRequest()) {
+              try {
+                await nextSound.unloadAsync();
+              } catch {
+                // Ignore cleanup failures for an abandoned load.
+              }
+
+              return;
+            }
+
+            lastLoadError = error;
+            const isLastAttempt = attempt === retryPlan.length - 1;
+
+            if (isLastAttempt) {
+              throw error;
+            }
+
+            console.log(
+              `[Player] Load attempt ${attempt + 1} failed, retrying${retryPlan[attempt + 1] ? " with refresh" : ""}`,
+            );
+          }
+        }
+
+        if (lastLoadError) {
+          throw lastLoadError;
+        }
+
+        if (!isCurrentLoadRequest()) {
+          try {
+            await nextSound.unloadAsync();
+          } catch {
+            // Ignore cleanup failures for an abandoned load.
           }
 
-          console.log("[Player] Retrying with fresh stream URL after 403");
-          await loadFromResolvedStream(true);
+          return;
         }
 
         nextSound.setOnPlaybackStatusUpdate(updateFromPlaybackStatus);
@@ -254,6 +391,16 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
           setIsPlaying(true);
         }
       } catch (loadError) {
+        if (!isCurrentLoadRequest()) {
+          try {
+            await nextSound.unloadAsync();
+          } catch {
+            // Ignore cleanup failures for an abandoned load.
+          }
+
+          return;
+        }
+
         try {
           await nextSound.unloadAsync();
         } catch {
@@ -264,6 +411,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         setTrackError(loadError instanceof Error ? loadError.message : "Unable to load track");
         throw loadError;
       } finally {
+        setIsBuffering(false);
         setTrackLoading(false);
       }
     },
@@ -369,6 +517,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         const restoredSong = resolveTrack((parsed.currentSong as Track) ?? null, queueToUse);
 
         setQueue(queueToUse);
+        queueRef.current = queueToUse;
         setLikedSongIds(Array.isArray(parsed.likedSongIds) ? parsed.likedSongIds : []);
         setRecentlyPlayed(Array.isArray(parsed.recentlyPlayed) ? parsed.recentlyPlayed : []);
         setCatalogSongs(normalizeQueue(parsed.catalogSongs as Track[]));
@@ -383,16 +532,21 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         if (restoredSong) {
           const restoredIndex = queueToUse.findIndex((item) => item.id === restoredSong.id);
           setCurrentSong(restoredSong);
+          currentIndexRef.current = restoredIndex;
           setCurrentIndex(restoredIndex);
+          nextStreamRef.current = null;
+
+          const loadRequestId = ++loadRequestIdRef.current;
 
           await loadAndPlayTrack(restoredSong, {
             autoplay: Boolean(parsed.isPlaying),
             startPositionSeconds:
               typeof parsed.lastPositionSeconds === "number" ? parsed.lastPositionSeconds : 0,
-          });
+          }, loadRequestId);
         }
       } catch {
         setQueue(defaultQueue);
+        queueRef.current = defaultQueue;
       } finally {
         if (mounted) {
           setHydrated(true);
@@ -425,13 +579,92 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  const enqueueSong = useCallback((song: Track) => {
+    const normalized = normalizeTrackForPlayer(song);
+    if (!normalized?.id) return;
+
+    setQueue((previousQueue) => {
+      const existingIndex = previousQueue.findIndex((item) => item.id === normalized.id);
+      if (existingIndex !== -1) {
+        // Keep queue stable while making the action visible: move existing track to end.
+        const moved = previousQueue[existingIndex];
+        const without = previousQueue.filter((_, idx) => idx !== existingIndex);
+        const nextQueue = [...without, moved];
+        queueRef.current = nextQueue;
+        return nextQueue;
+      }
+
+      const nextQueue = [...previousQueue, normalized];
+      queueRef.current = nextQueue;
+      return nextQueue;
+    });
+
+    setCatalogSongs((previous) => mergeUniqueSongs([previous, [normalized]]));
+  }, []);
+
+  const enqueueNext = useCallback((song: Track) => {
+    const normalized = normalizeTrackForPlayer(song);
+    if (!normalized?.id) return;
+
+    setQueue((previousQueue) => {
+      let queueToUse = [...previousQueue];
+
+      // If track already exists, move it to play next instead of ignoring.
+      const existingIndex = queueToUse.findIndex((item) => item.id === normalized.id);
+      if (existingIndex !== -1) {
+        const [existing] = queueToUse.splice(existingIndex, 1);
+        const liveIndex = currentIndexRef.current;
+        const insertIndex = Math.max(0, liveIndex >= 0 ? liveIndex + 1 : queueToUse.length);
+        queueToUse.splice(insertIndex, 0, existing);
+        queueRef.current = queueToUse;
+        return queueToUse;
+      }
+
+      const liveIndex = currentIndexRef.current;
+      const insertIndex = Math.max(0, liveIndex >= 0 ? liveIndex + 1 : queueToUse.length);
+      queueToUse.splice(insertIndex, 0, normalized);
+      queueRef.current = queueToUse;
+      return queueToUse;
+    });
+
+    setCatalogSongs((previous) => mergeUniqueSongs([previous, [normalized]]));
+  }, []);
+
+  const replaceQueue = useCallback((tracks: Track[]) => {
+    const mapped = tracks.map((t) => normalizeTrackForPlayer(t));
+    const nextQueue = normalizeQueue(mapped);
+    setQueue(nextQueue);
+    queueRef.current = nextQueue;
+    nextStreamRef.current = null;
+
+    if (currentSong) {
+      const nextIndex = nextQueue.findIndex((item) => item.id === currentSong.id);
+
+      if (nextIndex !== -1) {
+        currentIndexRef.current = nextIndex;
+        setCurrentIndex(nextIndex);
+      } else if (nextQueue.length > 0) {
+        const clampedIndex = Math.max(0, Math.min(currentIndexRef.current, nextQueue.length - 1));
+        currentIndexRef.current = clampedIndex;
+        setCurrentIndex(clampedIndex);
+      }
+    }
+  }, [currentSong]);
+
   const playSong = useCallback(
     async (song: Track, nextQueue: Track[] = defaultQueue, options: PlaySongOptions = {}) => {
-      if (!song?.id) return;
+      if (!song) return;
+
+      const normalizedSong = normalizeTrackForPlayer(song);
+      if (!normalizedSong?.id) return;
+
+      const loadRequestId = ++loadRequestIdRef.current;
+      nextStreamRef.current = null;
 
       const queueToUse = normalizeQueue(nextQueue);
-      const initialQueue = queueToUse.length > 0 ? queueToUse : defaultQueue;
-      const resolvedSong = resolveTrack(song, initialQueue) ?? song;
+      const liveQueue = queueRef.current.length > 0 ? queueRef.current : defaultQueue;
+      const initialQueue = queueToUse.length > 0 ? queueToUse : liveQueue;
+      const resolvedSong = resolveTrack(normalizedSong, initialQueue) ?? normalizedSong;
 
       let finalQueue = initialQueue;
       let nextIndex = finalQueue.findIndex((item) => item.id === resolvedSong.id);
@@ -443,15 +676,27 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
       commitPlaybackTime();
       setQueue(finalQueue);
+      queueRef.current = finalQueue;
+      currentIndexRef.current = nextIndex;
       setCurrentIndex(nextIndex);
       setCurrentSong(resolvedSong);
       setCatalogSongs((previous) => mergeUniqueSongs([previous, finalQueue, [resolvedSong]]));
       rememberRecentlyPlayed(resolvedSong);
 
       try {
-        await loadAndPlayTrack(resolvedSong, options);
-      } catch {
+        await loadAndPlayTrack(resolvedSong, options, loadRequestId);
+      } catch (loadError) {
+        // ✅ FIX 2: On playback error, explicitly set error state
+        // DO NOT auto-skip to next song. Let user retry or manually skip.
         setIsPlaying(false);
+        console.error("[Player] Failed to load track:", loadError);
+        
+        // Show error but keep queue intact for retry
+        setTrackError(
+          loadError instanceof Error 
+            ? loadError.message 
+            : "Unable to play track"
+        );
       }
     },
     [commitPlaybackTime, loadAndPlayTrack, rememberRecentlyPlayed],
@@ -508,7 +753,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       const nextSong = tracks[nextIndex];
       if (!nextSong) return;
 
-      await playSong(nextSong, tracks);
+      const preloadedAudioUrl =
+        nextStreamRef.current?.trackId === nextSong.id ? nextStreamRef.current.url : undefined;
+
+      nextStreamRef.current = null;
+
+      await playSong(nextSong, tracks, preloadedAudioUrl ? { preloadedAudioUrl } : undefined);
     },
     [playSong],
   );
@@ -520,9 +770,13 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const index = tracks.findIndex((song) => song.id === currentSong.id);
 
     if (index === -1) {
-      setQueue([currentSong]);
-      setCurrentIndex(0);
-      return { tracks: [currentSong], index: 0 };
+      const nextQueue = [...tracks, currentSong];
+      const nextIndex = nextQueue.length - 1;
+      setQueue(nextQueue);
+      queueRef.current = nextQueue;
+      currentIndexRef.current = nextIndex;
+      setCurrentIndex(nextIndex);
+      return { tracks: nextQueue, index: nextIndex };
     }
 
     return { tracks, index };
@@ -546,9 +800,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const playRandomTrack = useCallback(
     async (avoidIndex?: number) => {
       const tracks = queueRef.current.length > 0 ? queueRef.current : defaultQueue;
-
-      // const randomIndex = pickRandomTrackIndex(tracks.length, avoidIndex);
-      const randomIndex = Math.floor(Math.random() * queue.length);
+      const randomIndex = pickRandomTrackIndex(tracks.length, avoidIndex);
       if (randomIndex === null) return;
 
       await playTrackAtIndex(randomIndex);
@@ -707,9 +959,13 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     shuffleEnabled,
     repeatMode,
     hydrated,
+    isBuffering,
     trackLoading,
     trackError,
     playSong,
+    enqueueSong,
+    enqueueNext,
+    replaceQueue,
     pause,
     resume,
     togglePlayPause,
@@ -723,7 +979,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     registerCatalogTracks,
     retryCurrentTrack: async () => {
       if (!currentSong) return;
-      await playSong(currentSong, queue.length > 0 ? queue : defaultQueue, {
+      const liveQueue = queueRef.current.length > 0 ? queueRef.current : defaultQueue;
+      await playSong(currentSong, liveQueue, {
         autoplay: true,
         startPositionSeconds: 0,
       });

@@ -10,6 +10,7 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS } from "react-native-reanimated";
 import { usePlayer } from "../context/PlayerContext";
 import { colors } from "../theme/colors";
+import { normalizeTrack } from "../utils/cleanTitle";
 
 export default function MiniPlayer() {
   const router = useRouter();
@@ -46,7 +47,7 @@ export default function MiniPlayer() {
       {/* 🔵 Progress Bar */}
       <View
         style={{
-          height: 4,
+          height: 3,
           width: "100%",
           backgroundColor: colors.border,
         }}
@@ -54,7 +55,7 @@ export default function MiniPlayer() {
         <View
           style={{
             width: `${progress}%`,
-            height: 4,
+            height: 3,
             backgroundColor: colors.player,
           }}
         />
@@ -68,15 +69,16 @@ export default function MiniPlayer() {
           flexDirection: "row",
           alignItems: "center",
           paddingHorizontal: 14,
-          paddingVertical: 12,
+          paddingVertical: 8,
+          minHeight: 69,
         }}
       >
         {/* Artwork */}
         <Image
           source={{ uri: currentSong.artwork }}
           style={{
-            width: 42,
-            height: 42,
+            width: 38,
+            height: 38,
             borderRadius: 8,
             marginRight: 12,
             backgroundColor: "#333",
@@ -90,29 +92,29 @@ export default function MiniPlayer() {
             style={{
               color: colors.textPrimary,
               fontWeight: "600",
-              fontSize: 14,
+                fontSize: 13,
             }}
           >
-            {currentSong.title}
+            {normalizeTrack(currentSong.title).title}
           </Text>
 
           <Text
             numberOfLines={1}
             style={{
               color: colors.textMuted,
-              fontSize: 12,
+              fontSize: 11,
             }}
           >
-            {currentSong.artist}
+            {normalizeTrack(currentSong.title).artist || currentSong.artist}
           </Text>
         </View>
 
         <TouchableOpacity
           onPress={() => router.push("/full-player")}
           style={{
-            width: 38,
-            height: 38,
-            borderRadius: 19,
+            width: 34,
+            height: 34,
+            borderRadius: 17,
             borderWidth: 1,
             borderColor: colors.border,
             justifyContent: "center",
@@ -133,9 +135,9 @@ export default function MiniPlayer() {
             }
           }}
           style={{
-            width: 48,
-            height: 48,
-            borderRadius: 24,
+            width: 42,
+            height: 42,
+            borderRadius: 21,
             backgroundColor: colors.player,
             justifyContent: "center",
             alignItems: "center",
