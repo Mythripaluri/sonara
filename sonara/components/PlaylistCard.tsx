@@ -24,24 +24,23 @@ export const PlaylistCard: React.FC<PlaylistCardProps> = ({
       onLongPress={onLongPress}
       style={({ pressed }) => [
         {
-          backgroundColor: pressed ? colors.surface : colors.background,
-          borderRadius: 8,
+          backgroundColor: colors.surfaceElevated,
+          borderRadius: 14,
           padding: 12,
-          marginVertical: 6,
+          marginVertical: 4,
           marginHorizontal: 12,
           flexDirection: "row",
           alignItems: "center",
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
+          opacity: pressed ? 0.8 : 1,
         },
       ]}
     >
       <ImageBackground
         source={{ uri: playlist.artwork }}
         style={{
-          width: 50,
-          height: 50,
-          borderRadius: 4,
+          width: 56,
+          height: 56,
+          borderRadius: 10,
           marginRight: 12,
           overflow: "hidden",
         }}
@@ -62,8 +61,8 @@ export const PlaylistCard: React.FC<PlaylistCardProps> = ({
       <View style={{ flex: 1 }}>
         <Text
           style={{
-            fontSize: 16,
-            fontWeight: "600",
+            fontSize: 15,
+            fontWeight: "700",
             color: colors.textPrimary,
           }}
           numberOfLines={1}
@@ -73,7 +72,7 @@ export const PlaylistCard: React.FC<PlaylistCardProps> = ({
         <Text
           style={{
             fontSize: 12,
-            color: colors.textSecondary,
+            color: colors.textMuted,
             marginTop: 2,
           }}
         >

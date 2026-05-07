@@ -37,119 +37,120 @@ export default function MiniPlayer() {
       <Animated.View
         style={{
           position: "absolute",
-          bottom: 66,
+          bottom: 72,
           width: "100%",
-          backgroundColor: "rgba(18, 18, 18, 0.98)",
-          borderTopWidth: 1,
-          borderColor: colors.border,
+          paddingHorizontal: 8,
         }}
       >
-      {/* 🔵 Progress Bar */}
       <View
         style={{
-          height: 3,
-          width: "100%",
-          backgroundColor: colors.border,
+          borderRadius: 18,
+          backgroundColor: colors.surfaceElevated,
+          borderWidth: 1,
+          borderColor: colors.border,
+          overflow: "hidden",
         }}
       >
         <View
           style={{
-            width: `${progress}%`,
-            height: 3,
-            backgroundColor: colors.player,
+            height: 2,
+            width: "100%",
+            backgroundColor: colors.border,
           }}
-        />
-      </View>
-
-      {/* 🎵 Content */}
-      <TouchableOpacity
-        onPress={() => router.push("/full-player")}
-        activeOpacity={0.9}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 14,
-          paddingVertical: 8,
-          minHeight: 69,
-        }}
-      >
-        {/* Artwork */}
-        <Image
-          source={{ uri: currentSong.artwork }}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 8,
-            marginRight: 12,
-            backgroundColor: "#333",
-          }}
-        />
-
-        {/* Song Info */}
-        <View style={{ flex: 1 }}>
-          <Text
-            numberOfLines={1}
+        >
+          <View
             style={{
-              color: colors.textPrimary,
-              fontWeight: "600",
-                fontSize: 13,
+              width: `${progress}%`,
+              height: 2,
+              backgroundColor: colors.player,
             }}
-          >
-            {normalizeTrack(currentSong.title).title}
-          </Text>
-
-          <Text
-            numberOfLines={1}
-            style={{
-              color: colors.textMuted,
-              fontSize: 11,
-            }}
-          >
-            {normalizeTrack(currentSong.title).artist || currentSong.artist}
-          </Text>
+          />
         </View>
 
         <TouchableOpacity
           onPress={() => router.push("/full-player")}
+          activeOpacity={0.9}
           style={{
-            width: 34,
-            height: 34,
-            borderRadius: 17,
-            borderWidth: 1,
-            borderColor: colors.border,
-            justifyContent: "center",
+            flexDirection: "row",
             alignItems: "center",
-            marginRight: 10,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            minHeight: 66,
           }}
         >
-          <Ionicons name="chevron-up" size={18} color="#fff" />
-        </TouchableOpacity>
-
-        {/* Play Button */}
-        <TouchableOpacity
-          onPress={async () => {
-            if (isPlaying) {
-              await pause();
-            } else {
-              await resume();
-            }
-          }}
-          style={{
-            width: 42,
-            height: 42,
-            borderRadius: 21,
-            backgroundColor: colors.player,
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <Ionicons
-            name={isPlaying ? "pause" : "play"}
-            size={20}
-            color="#fff"
+          <Image
+            source={{ uri: currentSong.artwork }}
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: 10,
+              marginRight: 12,
+              backgroundColor: "#333",
+            }}
           />
+
+          <View style={{ flex: 1 }}>
+            <Text
+              numberOfLines={1}
+              style={{
+                color: colors.textPrimary,
+                fontWeight: "700",
+                fontSize: 13,
+              }}
+            >
+              {normalizeTrack(currentSong.title).title}
+            </Text>
+
+            <Text
+              numberOfLines={1}
+              style={{
+                color: colors.textMuted,
+                fontSize: 11,
+                marginTop: 2,
+              }}
+            >
+              {normalizeTrack(currentSong.title).artist || currentSong.artist}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={() => router.push("/full-player")}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 17,
+              justifyContent: "center",
+              alignItems: "center",
+              marginRight: 6,
+            }}
+          >
+            <Ionicons name="chevron-up" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={async () => {
+              if (isPlaying) {
+                await pause();
+              } else {
+                await resume();
+              }
+            }}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Ionicons
+              name={isPlaying ? "pause" : "play"}
+              size={22}
+              color={colors.textPrimary}
+            />
+          </TouchableOpacity>
         </TouchableOpacity>
-      </TouchableOpacity>
+      </View>
       </Animated.View>
     </GestureDetector>
   );

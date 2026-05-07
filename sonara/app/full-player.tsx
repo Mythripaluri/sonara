@@ -42,6 +42,7 @@ export default function FullPlayer() {
     queue,
     currentIndex,
     replaceQueue,
+    removeFromQueue,
   } = usePlayer();
 
   const formatTime = (millis) => {
@@ -75,21 +76,8 @@ export default function FullPlayer() {
     [currentIndex, queue, queueStartIndex],
   );
 
-  const updateUpNextQueue = (nextQueue: typeof queue) => {
-    const normalizedNextQueue = nextQueue.map((item) => normalizeTrackForPlayer(item));
-
-    if (!currentSong) {
-      replaceQueue(normalizedNextQueue);
-      return;
-    }
-
-    const liveCurrentIndex = queue.findIndex((item) => item.id === currentSong.id);
-    const livePrefix = liveCurrentIndex >= 0 ? queue.slice(0, liveCurrentIndex + 1) : [];
-    replaceQueue([...livePrefix, ...normalizedNextQueue]);
-  };
-
   const removeUpNextTrack = (trackId: string) => {
-    updateUpNextQueue(upNextQueue.filter((item) => item.id !== trackId));
+    removeFromQueue(trackId);
   };
 
   const onShareSong = async () => {
@@ -524,7 +512,21 @@ export default function FullPlayer() {
                   data={upNextQueue}
                   keyExtractor={(item) => item.id}
                   contentContainerStyle={{ paddingBottom: 140 }}
-                  onDragEnd={({ data }) => updateUpNextQueue(data)}
+                  onDragEnd={({ data }) => {
+                    if (!currentSong) return;
+
+                    const currentSongId = currentSong.id;
+
+                    const newIndex = data.findIndex(
+                      (item) => item.id === currentSongId
+                    );
+
+                    const normalizedData = data.map((item) => normalizeTrackForPlayer(item));
+                    const liveCurrentIndex = queue.findIndex((item) => item.id === currentSong.id);
+                    const livePrefix = liveCurrentIndex >= 0 ? queue.slice(0, liveCurrentIndex + 1) : [];
+
+                    replaceQueue([...livePrefix, ...normalizedData]);
+                  }}
                   renderItem={({ item, index, drag, isActive }: RenderItemParams<any>) => {
                     const isActiveTrack = currentSong?.id === item.id;
 

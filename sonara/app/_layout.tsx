@@ -22,6 +22,7 @@ export default function Layout() {
                 screenOptions={{
                   headerShown: false,
                   contentStyle: { backgroundColor: colors.background },
+                  gestureEnabled: false,
                 }}
               />
               {hideMiniPlayer ? null : <AppMessageBanner />}

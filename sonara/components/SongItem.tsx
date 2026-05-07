@@ -1,6 +1,6 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { useRef, useState } from "react";
-import { ActivityIndicator, Image, Modal, Pressable, Text, TouchableOpacity, View } from "react-native";
+import { useState } from "react";
+import { Image, Modal, Pressable, Text, View, Share } from "react-native";
 import { usePlayer } from "../context/PlayerContext";
 import { colors } from "../theme/colors";
 import type { Track } from "../constants/catalog";
@@ -30,9 +30,8 @@ export default function SongItem({
   onAddToPlaylist = null,
   menuActions = null,
 }: SongItemProps) {
-  const { currentSong, isPlaying, pause, resume, isBuffering } = usePlayer();
+  const { currentSong } = usePlayer();
   const [menuVisible, setMenuVisible] = useState(false);
-  const lastTapAtRef = useRef(0);
 
   const isCurrent = currentSong?.id === song.id;
   const lowerQuery = highlightQuery.trim().toLowerCase();
@@ -43,16 +42,7 @@ export default function SongItem({
   const displayTitle = normalized.title;
   const displayArtist = normalized.artist || song.artist;
 
-  const shouldIgnoreTap = () => {
-    const now = Date.now();
-
-    if (now - lastTapAtRef.current < 300) {
-      return true;
-    }
-
-    lastTapAtRef.current = now;
-    return false;
-  };
+  
 
   const renderHighlightedTitle = (title: string) => {
     if (!lowerQuery) return title;
@@ -74,18 +64,18 @@ export default function SongItem({
   };
 
   return (
-    <TouchableOpacity
-      onPress={() => {
-        if (shouldIgnoreTap()) return;
-        onPress(song);
-      }}
+    <Pressable
+      onPress={() => onPress(song)}
       onLongPress={onLongPress ? () => onLongPress(song) : undefined}
       style={{
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: isCurrent ? "rgba(30, 58, 138, 0.16)" : "transparent",
+        marginHorizontal: 10,
+        marginVertical: 2,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        borderRadius: 14,
+        backgroundColor: isCurrent ? "rgba(210, 193, 182, 0.15)" : "transparent",
       }}
     >
       {/* menu button is rendered on the right side to keep artwork/title aligned left */}
@@ -94,8 +84,8 @@ export default function SongItem({
       <Image
         source={{ uri: song.artwork }}
         style={{
-          width: 50,
-          height: 50,
+          width: 48,
+          height: 48,
           borderRadius: 8,
           backgroundColor: "#333",
           marginRight: 12,
@@ -112,60 +102,27 @@ export default function SongItem({
         </Text>
       </View>
 
-      <TouchableOpacity
-        onPress={async () => {
-          if (shouldIgnoreTap()) return;
-
-          if (!isCurrent) {
-            onPress(song);
-            return;
-          }
-
-          if (isPlaying) {
-            await pause();
-          } else {
-            await resume();
-          }
-        }}
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          backgroundColor: isCurrent ? colors.player : colors.surface,
-          justifyContent: "center",
-          alignItems: "center",
-          borderWidth: 1,
-          borderColor: isCurrent ? "transparent" : colors.border,
-        }}
-      >
-        {isCurrent && isBuffering ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <Ionicons name={isCurrent && isPlaying ? "pause" : "play"} size={18} color="#fff" />
-        )}
-      </TouchableOpacity>
+      {/* play/pause button removed: entire row plays the song on press */}
 
       {onAddToPlaylist && (
-        <TouchableOpacity
+        <Pressable
           onPress={() => onAddToPlaylist(song)}
           style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: colors.surface,
+            width: 34,
+            height: 34,
+            borderRadius: 17,
+            backgroundColor: colors.surfaceElevated,
             justifyContent: "center",
             alignItems: "center",
-            borderWidth: 1,
-            borderColor: colors.border,
             marginLeft: 8,
           }}
         >
           <MaterialIcons name="add" size={18} color={colors.active} />
-        </TouchableOpacity>
+        </Pressable>
       )}
 
       {menuActions && menuActions.length > 0 ? (
-        <TouchableOpacity
+        <Pressable
           onPress={() => setMenuVisible(true)}
           style={{
             marginLeft: 8,
@@ -174,13 +131,11 @@ export default function SongItem({
             borderRadius: 17,
             justifyContent: "center",
             alignItems: "center",
-            backgroundColor: colors.surface,
-            borderWidth: 1,
-            borderColor: colors.border,
+            backgroundColor: colors.surfaceElevated,
           }}
         >
           <MaterialIcons name="more-vert" size={18} color={colors.textPrimary} />
-        </TouchableOpacity>
+        </Pressable>
       ) : null}
 
       {menuActions && menuActions.length > 0 ? (
@@ -212,44 +167,62 @@ export default function SongItem({
                 </Text>
               </View>
 
-              {menuActions.map((action) => (
-                <Pressable
-                  key={action.label}
-                  onPress={() => {
-                    setMenuVisible(false);
-                    action.onPress();
-                  }}
-                  style={({ pressed }) => ({
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 12,
-                    paddingHorizontal: 16,
-                    paddingVertical: 14,
-                    backgroundColor: pressed ? colors.surface : colors.background,
-                    borderTopWidth: 1,
-                    borderTopColor: colors.border,
-                  })}
-                >
-                  <MaterialIcons
-                    name={action.icon}
-                    size={20}
-                    color={action.destructive ? "#F87171" : colors.active}
-                  />
-                  <Text
-                    style={{
-                      color: action.destructive ? "#FCA5A5" : colors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: "600",
+              {(() => {
+                const fullActions: SongMenuAction[] = [
+                  {
+                    label: "Play song",
+                    icon: "play-arrow",
+                    onPress: () => onPress(song),
+                  },
+                  {
+                    label: "Share",
+                    icon: "share",
+                    onPress: () => {
+                      Share.share({ message: `${song.title} - ${song.artist}` });
+                    },
+                  },
+                  ...(menuActions || []),
+                ];
+
+                return fullActions.map((action) => (
+                  <Pressable
+                    key={action.label}
+                    onPress={() => {
+                      setMenuVisible(false);
+                      action.onPress();
                     }}
+                    style={({ pressed }) => ({
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 12,
+                      paddingHorizontal: 16,
+                      paddingVertical: 14,
+                      backgroundColor: pressed ? colors.surface : colors.background,
+                      borderTopWidth: 1,
+                      borderTopColor: colors.border,
+                    })}
                   >
-                    {action.label}
-                  </Text>
-                </Pressable>
-              ))}
+                    <MaterialIcons
+                      name={action.icon}
+                      size={20}
+                      color={action.destructive ? "#F87171" : colors.active}
+                    />
+                    <Text
+                      style={{
+                        color: action.destructive ? "#FCA5A5" : colors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {action.label}
+                    </Text>
+                  </Pressable>
+                ));
+              })()}
             </View>
           </Pressable>
         </Modal>
       ) : null}
-    </TouchableOpacity>
+    </Pressable>
   );
 }

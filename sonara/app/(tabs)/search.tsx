@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { useRouter } from "expo-router";
 import ArtistItem from "../../components/ArtistItem";
 import Seo from "../../components/Seo";
@@ -10,13 +10,15 @@ import { useRecentSearches } from "../../hooks/useRecentSearches";
 import { usePlayer } from "../../context/PlayerContext";
 import { useMusicCatalog } from "../../hooks/useMusicCatalog";
 import { buildTrackFromSearchResult, searchVideos, type SearchResult } from "../../services/videoSearchService";
-import { colors } from "../../theme/colors";
+import { colors, gradients } from "../../theme/colors";
 import { normalizeTrackForPlayer } from "../../utils/normalizeTrackForPlayer";
+import { LinearGradient } from "expo-linear-gradient";
 
 import type { Track } from "../../constants/catalog";
 
 export default function SearchScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 400);
   const lastQueryRef = useRef("");
@@ -99,6 +101,9 @@ export default function SearchScreen() {
     [results],
   );
 
+  const categories = ["Pop", "Lo-fi", "Indie", "Chill", "Electronic", "Acoustic"];
+  const categoryCardWidth = Math.max(0, (width - 32 - 10) / 2);
+
   const playResolvedResult = async (result: SearchResult) => {
     const track = buildTrackFromSearchResult(result);
     const normalizedTrack = normalizeTrackForPlayer(track);
@@ -108,29 +113,42 @@ export default function SearchScreen() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background, paddingTop: 20 }}
-      contentContainerStyle={{ paddingBottom: 120 }}
+      style={{ flex: 1, backgroundColor: colors.background }}
+      contentContainerStyle={{ paddingBottom: 120, paddingTop: 20, paddingHorizontal: 16 }}
       showsVerticalScrollIndicator={false}
     >
       <Seo
         title="Search"
         description="Search Sonara's catalog by song, artist, album, or genre to discover playable tracks faster."
       />
-      <Text style={{ color: "#fff", fontSize: 28, fontWeight: "800", paddingHorizontal: 20 }}>
-        Search
-      </Text>
-
       <View
         style={{
-          marginHorizontal: 20,
-          marginTop: 16,
-          paddingHorizontal: 16,
-          height: 54,
-          borderRadius: 16,
+          borderRadius: 24,
+          overflow: "hidden",
           backgroundColor: colors.surface,
           borderWidth: 1,
           borderColor: colors.border,
-          justifyContent: "center",
+          padding: 18,
+          marginBottom: 18,
+        }}
+      >
+        <Text style={{ color: colors.textPrimary, fontSize: 34, fontWeight: "800" }}>
+          Search
+        </Text>
+        <Text style={{ color: colors.textMuted, marginTop: 6, fontSize: 13, lineHeight: 18 }}>
+          Find songs, artists, albums, and genres without losing the flow.
+        </Text>
+      </View>
+
+      <View
+        style={{
+          marginTop: 0,
+          borderRadius: 999,
+          backgroundColor: colors.surfaceElevated,
+          borderWidth: 1,
+          borderColor: colors.border,
+          paddingHorizontal: 14,
+          paddingVertical: 2,
         }}
       >
         <TextInput
@@ -143,72 +161,160 @@ export default function SearchScreen() {
           style={{
             color: colors.textPrimary,
             fontSize: 15,
-            borderWidth: 1,
-            borderColor: isFocused ? colors.player : colors.border,
-            borderRadius: 14,
-            paddingHorizontal: 14,
+            paddingHorizontal: 10,
             paddingVertical: 12,
-            backgroundColor: isFocused ? "rgba(30, 58, 138, 0.08)" : colors.surface,
           }}
         />
       </View>
 
-      {query.trim().length === 0 ? (
-        <>
-          <Text style={{ color: colors.textMuted, fontSize: 12, letterSpacing: 1.1, paddingHorizontal: 20, marginTop: 24, marginBottom: 12 }}>
-            POPULAR ARTISTS
-          </Text>
+        {query.trim().length === 0 ? (
+          <>
+            {recentSearches.length > 0 ? (
+              <>
+                <Text
+                  style={{
+                    color: colors.textMuted,
+                    fontSize: 11,
+                    letterSpacing: 1.1,
+                    marginTop: 18,
+                    marginBottom: 10,
+                  }}
+                >
+                  RECENT SEARCHES
+                </Text>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
-            {artistSuggestions.map((artist) => (
-              <ArtistItem
-                key={artist.artist}
-                item={{ id: artist.id, name: artist.artist, genre: artist.genre, artwork: artist.artwork }}
-                onPress={() => router.push(`/artist/${artist.id}?name=${encodeURIComponent(artist.artist)}`)}
-              />
-            ))}
-          </ScrollView>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 10 }}
+                >
+                  {recentSearches.map((item) => (
+                    <Pressable
+                      key={item}
+                      onPress={() => setQuery(item)}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 10,
+                        borderRadius: 999,
+                        backgroundColor: colors.surfaceElevated,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: colors.textPrimary,
+                          fontWeight: "600",
+                        }}
+                      >
+                        {item}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </>
+            ) : null}
 
-          {recentSearches.length > 0 ? (
-            <>
-              <Text style={{ color: colors.textMuted, fontSize: 12, letterSpacing: 1.1, paddingHorizontal: 20, marginTop: 28, marginBottom: 12 }}>
-                RECENT SEARCHES
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}>
-                {recentSearches.map((item) => (
-                  <Pressable
-                    key={item}
-                    onPress={() => setQuery(item)}
+            <Text
+              style={{
+                color: colors.textPrimary,
+                fontSize: 20,
+                fontWeight: "800",
+                marginTop: 24,
+                marginBottom: 10,
+              }}
+            >
+              Browse all
+            </Text>
+
+            <View
+              style={{
+                flexDirection: "row",
+                flexWrap: "wrap",
+                justifyContent: "space-between",
+                gap: 4,
+              }}
+            >
+              {categories.map((label, index) => {
+                const grad = gradients[index % gradients.length];
+
+                return (
+                  <LinearGradient
+                    key={label}
+                    colors={[...grad]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
                     style={{
-                      paddingHorizontal: 14,
-                      paddingVertical: 10,
-                      borderRadius: 999,
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                      backgroundColor: colors.surface,
+                      width: categoryCardWidth,
+                      aspectRatio: 1.58,
+                      borderRadius: 18,
+                      padding: 14,
+                      marginBottom: 4,
                     }}
                   >
-                    <Text style={{ color: colors.textPrimary, fontWeight: "600" }}>{item}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </>
-          ) : null}
-        </>
-      ) : null}
+                    <Text
+                      style={{
+                        color: "#fff",
+                        fontWeight: "800",
+                        fontSize: 16,
+                      }}
+                    >
+                      {label}
+                    </Text>
+                  </LinearGradient>
+                );
+              })}
+            </View>
 
-      <Text style={{ color: colors.textMuted, fontSize: 12, letterSpacing: 1.1, paddingHorizontal: 20, marginTop: 24, marginBottom: 12 }}>
-        RESULTS
+            <Text
+              style={{
+                color: colors.textMuted,
+                fontSize: 11,
+                letterSpacing: 1.1,
+                marginTop: -123,
+                marginBottom: 10,
+              }}
+            >
+              POPULAR ARTISTS
+            </Text>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 10 }}
+            >
+              {artistSuggestions.map((artist) => (
+                <ArtistItem
+                  key={artist.artist}
+                  item={{
+                    id: artist.id,
+                    name: artist.artist,
+                    genre: artist.genre,
+                    artwork: artist.artwork,
+                  }}
+                  onPress={() =>
+                    router.push(
+                      `/artist/${artist.id}?name=${encodeURIComponent(
+                        artist.artist
+                      )}`
+                    )
+                  }
+                />
+              ))}
+            </ScrollView>
+          </>
+        ) : null}
+
+      <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: "800", marginTop: 24, marginBottom: 10 }}>
+        TRENDING SONGS
       </Text>
 
         {searchLoading ? (
-          <View style={{ marginHorizontal: 20, marginTop: 10, padding: 20, borderRadius: 18, backgroundColor: colors.surface }}>
+          <View style={{ marginTop: 8, padding: 20, borderRadius: 18, backgroundColor: colors.surface }}>
             <Text style={{ color: colors.textPrimary, fontWeight: "700" }}>Loading music...</Text>
             <Text style={{ color: colors.textMuted, marginTop: 8 }}>Searching for the best video matches.</Text>
           </View>
         ) : query.trim().length >= 3 ? (
           results.length === 0 ? (
-            <View style={{ marginHorizontal: 20, marginTop: 10, padding: 20, borderRadius: 18, backgroundColor: colors.surface }}>
+            <View style={{ marginTop: 8, padding: 20, borderRadius: 18, backgroundColor: colors.surface }}>
               <Text style={{ color: colors.textPrimary, fontWeight: "700" }}>No matches found</Text>
               <Text style={{ color: colors.textMuted, marginTop: 8 }}>
                 Try a different song, artist, or album name.
@@ -258,7 +364,7 @@ export default function SearchScreen() {
             })
           )
         ) : filteredSongs.length === 0 ? (
-          <View style={{ marginHorizontal: 20, marginTop: 10, padding: 20, borderRadius: 18, backgroundColor: colors.surface }}>
+          <View style={{ marginTop: 8, padding: 20, borderRadius: 18, backgroundColor: colors.surface }}>
             <Text style={{ color: colors.textPrimary, fontWeight: "700" }}>No matches found</Text>
             <Text style={{ color: colors.textMuted, marginTop: 8 }}>
               Try a different song, artist, or album name.

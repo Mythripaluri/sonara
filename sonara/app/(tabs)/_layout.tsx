@@ -5,24 +5,25 @@ import { colors } from "../../theme/colors";
 
 export default function TabLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: "rgba(10, 10, 10, 0.98)",
-          borderTopColor: colors.border,
-          height: 66,
-          paddingTop: 8,
-        },
-        tabBarActiveTintColor: colors.active,
-        tabBarInactiveTintColor: colors.inactive,
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: "600",
-          marginBottom: 6,
-        },
-      }}
-    >
+  <Tabs
+    detachInactiveScreens={false}
+    screenOptions={{
+      headerShown: false,
+      tabBarStyle: {
+        backgroundColor: "rgba(27, 60, 83, 0.96)",
+        borderTopColor: colors.border,
+        height: 70,
+        paddingTop: 10,
+      },
+      tabBarActiveTintColor: colors.active,
+      tabBarInactiveTintColor: colors.inactive,
+      tabBarLabelStyle: {
+        fontSize: 10,
+        fontWeight: "600",
+        marginBottom: 8,
+      },
+    }}
+  >
       <Tabs.Screen
         name="index"
         options={{
@@ -54,16 +55,6 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="playlists"
-        options={{
-          title: "Playlists",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="playlist-play" size={size} color={color} />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
@@ -72,6 +63,7 @@ export default function TabLayout() {
           ),
         }}
       />
+
     </Tabs>
   );
 }

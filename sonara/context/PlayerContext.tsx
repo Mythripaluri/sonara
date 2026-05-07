@@ -52,6 +52,7 @@ type PlayerContextValue = PlayerState & {
   enqueueSong: (song: Track) => void;
   enqueueNext: (song: Track) => void;
   replaceQueue: (tracks: Track[]) => void;
+  removeFromQueue: (id: string) => Promise<void>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   togglePlayPause: () => Promise<void>;
@@ -630,26 +631,68 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     setCatalogSongs((previous) => mergeUniqueSongs([previous, [normalized]]));
   }, []);
 
-  const replaceQueue = useCallback((tracks: Track[]) => {
-    const mapped = tracks.map((t) => normalizeTrackForPlayer(t));
-    const nextQueue = normalizeQueue(mapped);
-    setQueue(nextQueue);
-    queueRef.current = nextQueue;
+  const replaceQueue = useCallback((newQueue: Track[]) => {
+    setQueue([...newQueue]);
+    queueRef.current = [...newQueue];
     nextStreamRef.current = null;
 
-    if (currentSong) {
-      const nextIndex = nextQueue.findIndex((item) => item.id === currentSong.id);
+    if (!currentSong) return;
 
-      if (nextIndex !== -1) {
-        currentIndexRef.current = nextIndex;
-        setCurrentIndex(nextIndex);
-      } else if (nextQueue.length > 0) {
-        const clampedIndex = Math.max(0, Math.min(currentIndexRef.current, nextQueue.length - 1));
-        currentIndexRef.current = clampedIndex;
-        setCurrentIndex(clampedIndex);
-      }
+    const updatedIndex = newQueue.findIndex(
+      (song) => song.id === currentSong.id
+    );
+
+    if (updatedIndex !== -1) {
+      currentIndexRef.current = updatedIndex;
+      setCurrentIndex(updatedIndex);
     }
   }, [currentSong]);
+
+  const removeFromQueue = useCallback(
+    async (id: string) => {
+      const removingCurrent = queueRef.current[currentIndexRef.current]?.id === id;
+
+      const updatedQueue = queueRef.current.filter((song) => song.id !== id);
+
+      if (updatedQueue.length === 0) {
+        setQueue([]);
+        setCurrentIndex(0);
+        setCurrentSong(null);
+
+        if (soundRef.current) {
+          await soundRef.current.stopAsync();
+        }
+        return;
+      }
+
+      if (removingCurrent) {
+        const nextIndex =
+          currentIndexRef.current >= updatedQueue.length
+            ? updatedQueue.length - 1
+            : currentIndexRef.current;
+
+        setQueue(updatedQueue);
+        queueRef.current = updatedQueue;
+        setCurrentIndex(nextIndex);
+        currentIndexRef.current = nextIndex;
+
+        await playSong(updatedQueue[nextIndex], updatedQueue);
+      } else {
+        const removedIndex = queueRef.current.findIndex(
+          (song) => song.id === id
+        );
+
+        setQueue(updatedQueue);
+        queueRef.current = updatedQueue;
+
+        if (removedIndex < currentIndexRef.current) {
+          setCurrentIndex((prev) => prev - 1);
+          currentIndexRef.current = currentIndexRef.current - 1;
+        }
+      }
+    },
+    [playSong],
+  );
 
   const playSong = useCallback(
     async (song: Track, nextQueue: Track[] = defaultQueue, options: PlaySongOptions = {}) => {
@@ -966,6 +1009,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     enqueueSong,
     enqueueNext,
     replaceQueue,
+    removeFromQueue,
     pause,
     resume,
     togglePlayPause,
