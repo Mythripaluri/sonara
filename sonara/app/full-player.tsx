@@ -3,16 +3,27 @@ import Slider from "@react-native-community/slider";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { Image, Modal, Pressable, ScrollView, Share, Text, TouchableOpacity, View } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { Swipeable } from "react-native-gesture-handler";
-import { runOnJS } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AddToPlaylistModal } from "../components/AddToPlaylistModal";
 import { usePlayer } from "../context/PlayerContext";
-import DraggableFlatList, { type RenderItemParams } from "react-native-draggable-flatlist";
+import { usePlayerStore } from "../store/playerStore";
 import { colors } from "../theme/colors";
 import { normalizeTrack } from "../utils/cleanTitle";
+// import SwipeableItem from "react-native-swipeable-item";
+import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { normalizeTrackForPlayer } from "../utils/normalizeTrackForPlayer";
+import type { Track } from "../constants/catalog";
+import DraggableFlatList, {
+  ScaleDecorator,
+} from "react-native-draggable-flatlist";
+import { StyleSheet } from "react-native";
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+});
 
 export default function FullPlayer() {
   const router = useRouter();
@@ -21,7 +32,6 @@ export default function FullPlayer() {
   const [queueVisible, setQueueVisible] = useState(false);
 
   const {
-    currentSong,
     isPlaying,
     trackLoading,
     trackError,
@@ -39,21 +49,20 @@ export default function FullPlayer() {
     toggleLike,
     isLiked,
     retryCurrentTrack,
-    queue,
-    currentIndex,
-    replaceQueue,
     removeFromQueue,
   } = usePlayer();
 
-  const formatTime = (millis) => {
+  const queue = usePlayerStore((state) => state.queue);
+  const currentIndex = usePlayerStore((state) => state.currentIndex);
+  const currentSong = usePlayerStore((state) => state.currentSong);
+  const replaceQueue = usePlayerStore((state) => state.replaceQueue);
+
+  const formatTime = (millis: number) => {
     const totalSeconds = Math.floor(millis);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
-
-  const queueItems = queue;
-
   const closePlayer = () => {
     router.back();
   };
@@ -67,10 +76,6 @@ export default function FullPlayer() {
   };
 
   const queueStartIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
-  const queuePrefix = useMemo(
-    () => (currentIndex >= 0 ? queue.slice(0, currentIndex + 1) : []),
-    [currentIndex, queue],
-  );
   const upNextQueue = useMemo(
     () => (currentIndex >= 0 ? queue.slice(queueStartIndex) : queue),
     [currentIndex, queue, queueStartIndex],
@@ -79,6 +84,98 @@ export default function FullPlayer() {
   const removeUpNextTrack = (trackId: string) => {
     removeFromQueue(trackId);
   };
+
+const renderRightActions = () => {
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "#DC2626",
+        borderRadius: 16,
+        justifyContent: "center",
+        alignItems: "flex-end",
+        paddingRight: 24,
+        marginBottom: 8,
+      }}
+    >
+      <Ionicons name="trash-outline" size={24} color="#fff" />
+    </View>
+  );
+};
+
+const renderItem = ({ item, drag, isActive }: any) => {
+  return (
+    <ScaleDecorator>
+      <Swipeable
+        friction={2}
+        rightThreshold={40}
+        overshootRight={false}
+        renderRightActions={renderRightActions}
+        // onSwipeableOpen={(direction: "left" | "right") => {
+        //   if (direction === "right") {
+        //     removeUpNextTrack(item.id);
+        //   }
+        // }}
+        onSwipeableWillOpen={() => {
+          removeUpNextTrack(item.id);
+        }}
+      >
+        <View
+          style={{
+            marginBottom: 8,
+          }}
+        >
+          <Pressable
+            delayLongPress={150}
+            onLongPress={drag}
+            style={{
+              padding: 16,
+              borderRadius: 16,
+              backgroundColor: isActive
+                ? "rgba(30,58,138,0.25)"
+                : colors.background,
+              borderWidth: 1,
+              borderColor: isActive
+                ? "#1E3A8A"
+                : colors.border,
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
+            <MaterialIcons
+              name="drag-handle"
+              size={20}
+              color={colors.textMuted}
+            />
+
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <Text
+                style={{
+                  color: colors.textPrimary,
+                  fontWeight: "700",
+                }}
+                numberOfLines={1}
+              >
+                {item.title}
+              </Text>
+
+              <Text
+                style={{
+                  color: colors.textMuted,
+                  marginTop: 2,
+                  fontSize: 12,
+                }}
+                numberOfLines={1}
+              >
+                {item.artist}
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+      </Swipeable>
+    </ScaleDecorator>
+  );
+};
 
   const onShareSong = async () => {
     if (!currentSong) return;
@@ -94,18 +191,11 @@ export default function FullPlayer() {
     }
   };
 
-  const closeGesture = Gesture.Pan().onEnd((event) => {
-    if (event.translationY > 60) {
-      runOnJS(closePlayer)();
-    }
-  });
-
   if (!currentSong) return null;
 
   return (
-    <GestureDetector gesture={closeGesture}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top", "left", "right"]}>
-        <ScrollView
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+        {/* <ScrollView
           style={{ flex: 1, backgroundColor: colors.background }}
           contentContainerStyle={{
             paddingHorizontal: 20,
@@ -113,7 +203,15 @@ export default function FullPlayer() {
             paddingBottom: 56,
           }}
           showsVerticalScrollIndicator={false}
-        >
+        > */}
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: colors.background,
+              paddingHorizontal: 20,
+              paddingTop: 12,
+            }}
+          >
           <View
             style={{
               flexDirection: "row",
@@ -273,7 +371,7 @@ export default function FullPlayer() {
               />
             </Pressable>
 
-            <Pressable onPress={playNext} style={{ padding: 20 }}>
+            <Pressable onPress={() => void playNext()} style={{ padding: 20 }}>
               <Ionicons name="play-skip-forward" size={28} color="#fff" />
             </Pressable>
           </View>
@@ -388,7 +486,8 @@ export default function FullPlayer() {
               <Text style={{ color: colors.textPrimary, fontWeight: "700" }}>Up Next</Text>
             </Pressable>
           </View>
-        </ScrollView>
+        {/* </ScrollView> */}
+        </View>
 
         <Modal visible={menuVisible} transparent animationType="slide" onRequestClose={closeMenu}>
           <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }} onPress={closeMenu}>
@@ -457,138 +556,179 @@ export default function FullPlayer() {
           onClose={() => setAddToPlaylistVisible(false)}
         />
 
-        <Modal visible={queueVisible} transparent animationType="slide" onRequestClose={() => setQueueVisible(false)}>
-          <Pressable
-            style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}
-            onPress={() => setQueueVisible(false)}
+{queueVisible && (
+  <View
+    style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      justifyContent: "flex-end",
+      zIndex: 999,
+    }}
+  >
+    {/* BACKDROP */}
+    <Pressable
+      style={StyleSheet.absoluteFillObject}
+      onPress={() => setQueueVisible(false)}
+    />
+
+    {/* SHEET */}
+    <View
+      style={{
+        backgroundColor: colors.surface,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        borderTopWidth: 1,
+        borderColor: colors.border,
+        maxHeight: "78%",
+        paddingTop: 12,
+        paddingBottom: 20,
+      }}
+    >
+      {/* HANDLE */}
+      <View style={{ alignItems: "center", marginBottom: 12 }}>
+        <View
+          style={{
+            width: 44,
+            height: 4,
+            borderRadius: 999,
+            backgroundColor: colors.border,
+          }}
+        />
+      </View>
+
+      {/* HEADER */}
+      <View style={{ paddingHorizontal: 20, marginBottom: 12 }}>
+        <Text
+          style={{
+            color: colors.textPrimary,
+            fontSize: 18,
+            fontWeight: "800",
+          }}
+        >
+          Up Next
+        </Text>
+
+        <Text
+          style={{
+            color: colors.textMuted,
+            marginTop: 4,
+          }}
+        >
+          Drag to reorder. Swipe left to remove.
+        </Text>
+      </View>
+
+      {/* NOW PLAYING */}
+      {currentSong ? (
+        <View
+          style={{
+            paddingHorizontal: 16,
+            marginBottom: 10,
+          }}
+        >
+          <View
+            style={{
+              padding: 14,
+              borderRadius: 16,
+              backgroundColor: colors.background,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
           >
-            <Pressable
+            <Text
               style={{
-                backgroundColor: colors.surface,
-                borderTopLeftRadius: 24,
-                borderTopRightRadius: 24,
-                borderTopWidth: 1,
-                borderColor: colors.border,
-                maxHeight: "78%",
-                paddingTop: 12,
-                paddingBottom: 20,
+                color: colors.textMuted,
+                fontSize: 11,
+                fontWeight: "800",
+                letterSpacing: 1,
               }}
             >
-              <View style={{ alignItems: "center", marginBottom: 12 }}>
-                <View style={{ width: 44, height: 4, borderRadius: 999, backgroundColor: colors.border }} />
-              </View>
-              <View style={{ paddingHorizontal: 20, marginBottom: 12 }}>
-                <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: "800" }}>Up Next</Text>
-                <Text style={{ color: colors.textMuted, marginTop: 4 }}>
-                  Drag to reorder. Swipe left to remove.
-                </Text>
-              </View>
+              NOW PLAYING
+            </Text>
 
-              {currentSong ? (
-                <View style={{ paddingHorizontal: 16, marginBottom: 10 }}>
-                  <View style={{ padding: 14, borderRadius: 16, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
-                    <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>
-                      NOW PLAYING
-                    </Text>
-                    <Text style={{ color: colors.textPrimary, fontWeight: "800", marginTop: 6 }} numberOfLines={1}>
-                      {normalizeTrack(currentSong.title).title}
-                    </Text>
-                    <Text style={{ color: colors.textMuted, marginTop: 4 }} numberOfLines={1}>
-                      {normalizeTrack(currentSong.title).artist || currentSong.artist}
-                    </Text>
-                  </View>
-                </View>
-              ) : null}
+            <Text
+              style={{
+                color: colors.textPrimary,
+                fontWeight: "800",
+                marginTop: 6,
+              }}
+              numberOfLines={1}
+            >
+              {normalizeTrack(currentSong.title).title}
+            </Text>
 
-              {upNextQueue.length === 0 ? (
-                <View style={{ padding: 16, borderRadius: 16, backgroundColor: colors.background }}>
-                  <Text style={{ color: colors.textPrimary, fontWeight: "700" }}>Up next is empty</Text>
-                  <Text style={{ color: colors.textMuted, marginTop: 6 }}>
-                    Play a song from Search or a playlist to build the queue.
-                  </Text>
-                </View>
-              ) : (
-                <DraggableFlatList
-                  data={upNextQueue}
-                  keyExtractor={(item) => item.id}
-                  contentContainerStyle={{ paddingBottom: 140 }}
-                  onDragEnd={({ data }) => {
-                    if (!currentSong) return;
+            <Text
+              style={{
+                color: colors.textMuted,
+                marginTop: 4,
+              }}
+              numberOfLines={1}
+            >
+              {normalizeTrack(currentSong.title).artist ||
+                currentSong.artist}
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
-                    const currentSongId = currentSong.id;
+      {/* EMPTY STATE */}
+      {upNextQueue.length === 0 ? (
+        <View
+          style={{
+            padding: 16,
+            borderRadius: 16,
+            backgroundColor: colors.background,
+            marginHorizontal: 16,
+          }}
+        >
+          <Text
+            style={{
+              color: colors.textPrimary,
+              fontWeight: "700",
+            }}
+          >
+            Up next is empty
+          </Text>
 
-                    const newIndex = data.findIndex(
-                      (item) => item.id === currentSongId
-                    );
+          <Text
+            style={{
+              color: colors.textMuted,
+              marginTop: 6,
+            }}
+          >
+            Play a song from Search or a playlist to build the queue.
+          </Text>
+        </View>
+      ) : (
+        <DraggableFlatList
+          data={upNextQueue}
+            contentContainerStyle={{
+              paddingBottom: 160,
+            }}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          onDragBegin={(index) => {
+            console.log("DRAG BEGIN", index);
+          }}
+          onRelease={(index) => {
+            console.log("RELEASE", index);
+          }}
+onDragEnd={({ data }) => {
+  const newQueue = currentSong
+    ? [currentSong, ...data]
+    : data;
 
-                    const normalizedData = data.map((item) => normalizeTrackForPlayer(item));
-                    const liveCurrentIndex = queue.findIndex((item) => item.id === currentSong.id);
-                    const livePrefix = liveCurrentIndex >= 0 ? queue.slice(0, liveCurrentIndex + 1) : [];
-
-                    replaceQueue([...livePrefix, ...normalizedData]);
-                  }}
-                  renderItem={({ item, index, drag, isActive }: RenderItemParams<any>) => {
-                    const isActiveTrack = currentSong?.id === item.id;
-
-                    return (
-                      <Swipeable
-                        overshootRight={false}
-                        renderRightActions={() => (
-                          <Pressable
-                            onPress={() => removeUpNextTrack(item.id)}
-                            style={{
-                              width: 92,
-                              marginBottom: 8,
-                              marginLeft: 8,
-                              borderRadius: 16,
-                              backgroundColor: "rgba(185, 28, 28, 0.9)",
-                              justifyContent: "center",
-                              alignItems: "center",
-                            }}
-                          >
-                            <MaterialIcons name="delete-outline" size={24} color="#fff" />
-                          </Pressable>
-                        )}
-                      >
-                        <Pressable
-                          onPress={() => playSong(normalizeTrackForPlayer(item), queue.map((q) => normalizeTrackForPlayer(q)))}
-                          onLongPress={drag}
-                          style={{
-                            padding: 14,
-                            borderRadius: 16,
-                            backgroundColor: isActiveTrack ? "rgba(30, 58, 138, 0.18)" : colors.background,
-                            borderWidth: 1,
-                            borderColor: isActiveTrack ? colors.player : colors.border,
-                            marginBottom: 8,
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 12,
-                          }}
-                        >
-                          <View style={{ width: 34, alignItems: "center" }}>
-                            <MaterialIcons name="drag-handle" size={20} color={colors.textMuted} />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "700" }}>
-                              {isActiveTrack ? "NOW PLAYING" : `${index + 1}.`}
-                            </Text>
-                            <Text style={{ color: colors.textPrimary, fontWeight: "800", marginTop: 4 }} numberOfLines={1}>
-                              {normalizeTrack(item.title).title}
-                            </Text>
-                            <Text style={{ color: colors.textMuted, marginTop: 4 }} numberOfLines={1}>
-                              {normalizeTrack(item.title).artist || "Unknown Artist"}
-                            </Text>
-                          </View>
-                        </Pressable>
-                      </Swipeable>
-                    );
-                  }}
-                />
-              )}
-            </Pressable>
-          </Pressable>
-        </Modal>
+  replaceQueue(newQueue);
+}}
+        />
+      )}
+    </View>
+  </View>
+)}
       </SafeAreaView>
-    </GestureDetector>
   );
 }

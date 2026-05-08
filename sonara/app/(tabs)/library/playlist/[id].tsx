@@ -16,7 +16,7 @@ export default function PlaylistDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getPlaylist, playlists, removeSong, deletePlaylist, renamePlaylist } = usePlaylist();
-  const { playSong, enqueueSong, enqueueNext } = usePlayer();
+  const { playSong, enqueueLast, enqueueNext } = usePlayer();
   const { showMessage } = useAppMessage();
 
   const playlist = useMemo(() => (id ? getPlaylist(id) : undefined), [id, getPlaylist, playlists]);
@@ -272,7 +272,7 @@ export default function PlaylistDetailScreen() {
                 }}
                 menuActions={[
                   { label: "Play next", icon: "skip-next", onPress: () => enqueueNext(normalizeTrackForPlayer(song)) },
-                  { label: "Add to queue", icon: "queue-music", onPress: () => enqueueSong(normalizeTrackForPlayer(song)) },
+                  { label: "Add to queue", icon: "queue-music", onPress: () => enqueueLast(normalizeTrackForPlayer(song)) },
                   { label: "Remove", icon: "delete-outline", destructive: true, onPress: () => handleRemoveSong(song) },
                 ]}
               />
