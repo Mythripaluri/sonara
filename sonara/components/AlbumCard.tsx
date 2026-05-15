@@ -8,28 +8,28 @@ export default function AlbumCard({ item, onOpen, onPlay }) {
       activeOpacity={0.9}
       onPress={onOpen ?? onPlay}
       style={{
-        width: 170,
-        height: 200,
-        marginRight: 12,
-        borderRadius: 20,
+        width: 160,
+        height: 160,
+        marginRight: 10,
+        borderRadius: 16,
         overflow: "hidden",
       }}
     >
       <ImageBackground
         source={{ uri: item.artwork }}
         style={{ flex: 1, justifyContent: "flex-end" }}
-        imageStyle={{ borderRadius: 20 }}
+        imageStyle={{ borderRadius: 16 }}
       >
         {onPlay ? (
           <Pressable
             onPress={onPlay}
             style={{
               position: "absolute",
-              top: 12,
-              right: 12,
-              width: 38,
-              height: 38,
-              borderRadius: 19,
+              top: 8,
+              right: 8,
+              width: 36,
+              height: 36,
+              borderRadius: 18,
               backgroundColor: "rgba(0, 0, 0, 0.45)",
               justifyContent: "center",
               alignItems: "center",
@@ -37,20 +37,20 @@ export default function AlbumCard({ item, onOpen, onPlay }) {
               borderColor: "rgba(255,255,255,0.22)",
             }}
           >
-            <Ionicons name="play" size={16} color="#fff" />
+            <Ionicons name="play" size={14} color="#fff" />
           </Pressable>
         ) : null}
 
         <View
           style={{
-            padding: 14,
+            padding: 10,
             backgroundColor: "rgba(0, 0, 0, 0.45)",
           }}
         >
-          <Text style={{ color: "#fff", fontSize: 17, fontWeight: "700" }}>
+          <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>
             {item.title}
           </Text>
-          <Text style={{ color: "#E5E7EB", marginTop: 4, fontSize: 12 }}>
+          <Text style={{ color: "#E5E7EB", marginTop: 2, fontSize: 10 }}>
             {item.artist || item.subtitle}
           </Text>
         </View>

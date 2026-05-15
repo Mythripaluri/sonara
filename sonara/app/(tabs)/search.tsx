@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import ArtistItem from "../../components/ArtistItem";
 import Seo from "../../components/Seo";
 import SongItem from "../../components/SongItem";
+import { SongItemSkeleton } from "../../components/SkeletonLoader";
 import { AddToPlaylistModal } from "../../components/AddToPlaylistModal";
 import { useDebounce } from "../../hooks/useDebounce";
 import { useRecentSearches } from "../../hooks/useRecentSearches";
@@ -22,7 +23,7 @@ export default function SearchScreen() {
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 300);
   const lastQueryRef = useRef("");
-  const { playSong, enqueueSong, enqueueNext } = usePlayer();
+  const { playSong, enqueueLast, enqueueNext } = usePlayer();
   const { tracks: featuredTracks } = useMusicCatalog();
   const { recentSearches, recordSearch } = useRecentSearches();
   const [isFocused, setIsFocused] = useState(false);
@@ -308,9 +309,10 @@ export default function SearchScreen() {
       </Text>
 
         {searchLoading ? (
-          <View style={{ marginTop: 8, padding: 20, borderRadius: 18, backgroundColor: colors.surface }}>
-            <Text style={{ color: colors.textPrimary, fontWeight: "700" }}>Loading music...</Text>
-            <Text style={{ color: colors.textMuted, marginTop: 8 }}>Searching for the best video matches.</Text>
+          <View style={{ gap: 2 }}>
+            {[...Array(5)].map((_, index) => (
+              <SongItemSkeleton key={index} />
+            ))}
           </View>
         ) : query.trim().length >= 3 ? (
           results.length === 0 ? (
@@ -345,7 +347,7 @@ export default function SearchScreen() {
                     {
                       label: "Queue song",
                       icon: "queue-music",
-                      onPress: () => enqueueSong(normalizeTrackForPlayer(track)),
+                      onPress: () => enqueueLast(normalizeTrackForPlayer(track)),
                     },
                     {
                       label: "Queue next",

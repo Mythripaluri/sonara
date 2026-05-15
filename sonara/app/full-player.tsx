@@ -18,6 +18,7 @@ import DraggableFlatList, {
   ScaleDecorator,
 } from "react-native-draggable-flatlist";
 import { StyleSheet } from "react-native";
+import { vi } from "vitest";
 
 const styles = StyleSheet.create({
   container: {
@@ -57,7 +58,10 @@ export default function FullPlayer() {
   const currentIndex = usePlayerStore((state) => state.currentIndex);
   const currentSong = usePlayerStore((state) => state.currentSong);
   const replaceQueue = usePlayerStore((state) => state.replaceQueue);
-
+  const progress =
+    duration > 0
+      ? (position / duration) * 100
+      : 0;
   const formatTime = (millis: number) => {
     const totalSeconds = Math.floor(millis);
     const minutes = Math.floor(totalSeconds / 60);
@@ -226,10 +230,10 @@ const renderItem = ({ item, drag, isActive }: any) => {
             </TouchableOpacity>
 
             <View style={{ alignItems: "center" }}>
-              <Text style={{ color: "#aaa", fontSize: 12, letterSpacing: 1 }}>
+              <Text style={{ color: "#aaa", fontSize: 11, letterSpacing: 1, fontWeight: "600" }}>
                 PLAYING FROM
               </Text>
-              <Text style={{ color: "#fff", fontWeight: "600", marginTop: 2, maxWidth: 200 }} numberOfLines={1}>
+              <Text style={{ color: "#fff", fontWeight: "700", marginTop: 2, maxWidth: 200, fontSize: 12 }} numberOfLines={1}>
                 {currentSong.album || "Up Next"}
               </Text>
             </View>
@@ -245,7 +249,7 @@ const renderItem = ({ item, drag, isActive }: any) => {
               </View>
           </View>
 
-          <View style={{ alignItems: "center", marginTop: 10 }}>
+          <View style={{ alignItems: "center", marginTop: 10, backgroundColor: "rgba(30, 58, 138, 0.08)", borderRadius: 20, paddingVertical: 18 }}>
             {currentSong.artwork ? (
               <Image
                 source={{ uri: currentSong.artwork }}
@@ -253,10 +257,13 @@ const renderItem = ({ item, drag, isActive }: any) => {
                 cachePolicy="memory-disk"
                 transition={150}
                 style={{
-                  width: 280,
-                  height: 280,
-                  borderRadius: 16,
+                  width: 240,
+                  height: 240,
+                  borderRadius: 14,
                   backgroundColor: "#111",
+                  shadowColor: "#1E3A8A",
+                  shadowOpacity: 0.4,
+                  shadowRadius: 20,
                 }}
               />
             ) : (
@@ -264,13 +271,13 @@ const renderItem = ({ item, drag, isActive }: any) => {
                 style={{
                   width: "85%",
                   aspectRatio: 1,
-                  borderRadius: 16,
+                  borderRadius: 14,
                   backgroundColor: colors.player,
                   justifyContent: "center",
                   alignItems: "center",
                 }}
               >
-                <MaterialIcons name="music-note" size={60} color="#fff" />
+                <MaterialIcons name="music-note" size={52} color="#fff" />
               </View>
             )}
           </View>
@@ -280,13 +287,13 @@ const renderItem = ({ item, drag, isActive }: any) => {
               flexDirection: "row",
               justifyContent: "space-between",
               alignItems: "center",
-              marginTop: 16,
+              marginTop: 12,
             }}
           >
-            <View style={{ flex: 1, paddingRight: 12 }}>
+            <View style={{ flex: 1, paddingRight: 10 }}>
               <Text
                 style={{
-                  fontSize: 26,
+                  fontSize: 22,
                   fontWeight: "600",
                   color: "#fff",
                 }}
@@ -297,7 +304,7 @@ const renderItem = ({ item, drag, isActive }: any) => {
 
               <Text
                 style={{
-                  fontSize: 14,
+                  fontSize: 13,
                   color: "#aaa",
                   marginTop: 2,
                 }}
@@ -315,16 +322,42 @@ const renderItem = ({ item, drag, isActive }: any) => {
             </TouchableOpacity>
           </View>
 
-          <View style={{ alignItems: "center", marginTop: 16 }}>
-            <Slider
-              style={{ width: "100%", height: 40, marginTop: 16 }}
-              minimumValue={0}
-              maximumValue={duration || 1}
-              value={position}
-              minimumTrackTintColor="#FFFFFF"
-              maximumTrackTintColor="#555"
-              thumbTintColor="#FFFFFF"
-              onSlidingComplete={(value) => seekTo(value)}
+          <View style={{ alignItems: "center", marginTop: 12 }}>
+            <View
+              style={{
+                width: "100%",
+                height: 5,
+                backgroundColor: "rgba(255, 255, 255, 0.15)",
+                borderRadius: 3,
+                marginTop: 12,
+                overflow: "hidden",
+              }}
+            >
+              <View
+                style={{
+                  width: `${progress}%`,
+                  height: "100%",
+                  backgroundColor: "#1E3A8A",
+                  borderRadius: 3,
+                  shadowColor: "#1E3A8A",
+                  shadowOpacity: 0.6,
+                  shadowRadius: 8,
+                }}
+              />
+            </View>
+
+            <Pressable
+              onPress={(e) => {
+                const { locationX } = e.nativeEvent;
+                const percentage = locationX / (300 * 0.9); // Approximate width
+                seekTo(percentage * (duration || 1));
+              }}
+              style={{
+                width: "100%",
+                height: 30,
+                marginTop: -16,
+                justifyContent: "center",
+              }}
             />
 
             <View
@@ -332,13 +365,13 @@ const renderItem = ({ item, drag, isActive }: any) => {
                 flexDirection: "row",
                 justifyContent: "space-between",
                 width: "100%",
-                marginTop: 4,
+                marginTop: 6,
               }}
             >
-              <Text style={{ color: "#aaa", fontSize: 12 }}>
+              <Text style={{ color: "#aaa", fontSize: 11 }}>
                 {formatTime(position)}
               </Text>
-              <Text style={{ color: "#aaa", fontSize: 12 }}>
+              <Text style={{ color: "#aaa", fontSize: 11 }}>
                 {formatTime(duration)}
               </Text>
             </View>
@@ -349,20 +382,20 @@ const renderItem = ({ item, drag, isActive }: any) => {
               flexDirection: "row",
               justifyContent: "space-around",
               alignItems: "center",
-              marginTop: 30,
+              marginTop: 20,
             }}
           >
-            <Pressable onPress={playPrevious} style={{ padding: 20 }}>
-              <Ionicons name="play-skip-back" size={28} color="#fff" />
+            <Pressable onPress={playPrevious} style={{ padding: 14 }}>
+              <Ionicons name="play-skip-back" size={24} color="#fff" />
             </Pressable>
 
             <Pressable
               onPress={togglePlayPause}
               style={({ pressed }) => ({
                 backgroundColor: "#1E3A8A",
-                width: 80,
-                height: 80,
-                borderRadius: 40,
+                width: 72,
+                height: 72,
+                borderRadius: 36,
                 justifyContent: "center",
                 alignItems: "center",
                 elevation: 6,
@@ -375,7 +408,7 @@ const renderItem = ({ item, drag, isActive }: any) => {
             >
               <Ionicons
                 name={isPlaying ? "pause" : "play"}
-                size={32}
+                size={28}
                 color="#fff"
               />
             </Pressable>
@@ -383,27 +416,27 @@ const renderItem = ({ item, drag, isActive }: any) => {
             <Pressable
               disabled={trackLoading}
               onPress={() => void playNext()}
-              style={{ padding: 20 }}
+              style={{ padding: 14 }}
             >
-              <Ionicons name="play-skip-forward" size={28} color="#fff" />
+              <Ionicons name="play-skip-forward" size={24} color="#fff" />
             </Pressable>
           </View>
 
           {trackLoading ? (
-            <View style={{ marginTop: 18, padding: 16, borderRadius: 16, backgroundColor: colors.surface }}>
-              <Text style={{ color: colors.textPrimary, fontWeight: "700" }}>Loading track...</Text>
-              <Text style={{ color: colors.textMuted, marginTop: 6 }}>
+            <View style={{ marginTop: 14, padding: 12, borderRadius: 12, backgroundColor: colors.surface }}>
+              <Text style={{ color: colors.textPrimary, fontWeight: "700", fontSize: 13 }}>Loading track...</Text>
+              <Text style={{ color: colors.textMuted, marginTop: 4, fontSize: 11 }}>
                 Resolving a playable audio source.
               </Text>
             </View>
           ) : null}
 
           {trackError ? (
-            <View style={{ marginTop: 18, padding: 16, borderRadius: 16, backgroundColor: "rgba(185, 28, 28, 0.12)", borderWidth: 1, borderColor: "rgba(185, 28, 28, 0.35)" }}>
-              <Text style={{ color: "#FCA5A5", fontWeight: "800" }}>Playback failed</Text>
-              <Text style={{ color: "#FECACA", marginTop: 6 }}>{trackError}</Text>
-              <Pressable onPress={retryCurrentTrack} style={{ marginTop: 12, alignSelf: "flex-start", backgroundColor: "#DC2626", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12 }}>
-                <Text style={{ color: "#fff", fontWeight: "800" }}>Retry</Text>
+            <View style={{ marginTop: 14, padding: 12, borderRadius: 12, backgroundColor: "rgba(185, 28, 28, 0.12)", borderWidth: 1, borderColor: "rgba(185, 28, 28, 0.35)" }}>
+              <Text style={{ color: "#FCA5A5", fontWeight: "800", fontSize: 13 }}>Playback failed</Text>
+              <Text style={{ color: "#FECACA", marginTop: 4, fontSize: 11 }}>{trackError}</Text>
+              <Pressable onPress={retryCurrentTrack} style={{ marginTop: 8, alignSelf: "flex-start", backgroundColor: "#DC2626", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 }}>
+                <Text style={{ color: "#fff", fontWeight: "800", fontSize: 11 }}>Retry</Text>
               </Pressable>
             </View>
           ) : null}
@@ -413,24 +446,24 @@ const renderItem = ({ item, drag, isActive }: any) => {
               flexDirection: "row",
               justifyContent: "space-between",
               alignItems: "center",
-              marginTop: 20,
-              paddingHorizontal: 40,
+              marginTop: 16,
+              paddingHorizontal: 30,
             }}
           >
             <Pressable
               onPress={toggleShuffle}
               style={{
                 alignItems: "center",
-                padding: 12,
-                borderRadius: 12,
+                padding: 10,
+                borderRadius: 10,
                 backgroundColor: shuffleEnabled ? "rgba(30, 58, 138, 0.2)" : "transparent",
               }}
             >
-              <Ionicons name="shuffle" size={28} color={shuffleEnabled ? "#1E3A8A" : "#aaa"} />
+              <Ionicons name="shuffle" size={24} color={shuffleEnabled ? "#1E3A8A" : "#aaa"} />
               <Text
                 style={{
-                  fontSize: 10,
-                  marginTop: 4,
+                  fontSize: 9,
+                  marginTop: 2,
                   color: shuffleEnabled ? "#1E3A8A" : "#aaa",
                   fontWeight: "600",
                   letterSpacing: 0.5,
@@ -444,15 +477,15 @@ const renderItem = ({ item, drag, isActive }: any) => {
               onPress={toggleRepeatMode}
               style={{
                 alignItems: "center",
-                padding: 12,
-                borderRadius: 12,
+                padding: 10,
+                borderRadius: 10,
                 backgroundColor: repeatMode !== "off" ? "rgba(30, 58, 138, 0.2)" : "transparent",
               }}
             >
               <View style={{ position: "relative" }}>
                 <Ionicons
                   name={repeatMode === "one" ? "repeat-outline" : "repeat"}
-                  size={28}
+                  size={24}
                   color={repeatMode === "off" ? "#aaa" : "#1E3A8A"}
                 />
                 {repeatMode === "one" && (
@@ -461,7 +494,7 @@ const renderItem = ({ item, drag, isActive }: any) => {
                       position: "absolute",
                       right: -4,
                       top: -2,
-                      fontSize: 12,
+                      fontSize: 10,
                       fontWeight: "800",
                       color: "#1E3A8A",
                     }}
@@ -472,8 +505,8 @@ const renderItem = ({ item, drag, isActive }: any) => {
               </View>
               <Text
                 style={{
-                  fontSize: 10,
-                  marginTop: 4,
+                  fontSize: 9,
+                  marginTop: 2,
                   color: repeatMode === "off" ? "#aaa" : "#1E3A8A",
                   fontWeight: "600",
                   letterSpacing: 0.5,
@@ -484,19 +517,19 @@ const renderItem = ({ item, drag, isActive }: any) => {
             </Pressable>
           </View>
 
-          <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 18 }}>
+          <View style={{ flexDirection: "row", justifyContent: "center", gap: 10, marginTop: 14 }}>
             <Pressable
               onPress={() => setQueueVisible(true)}
               style={{
-                paddingHorizontal: 18,
-                paddingVertical: 10,
+                paddingHorizontal: 14,
+                paddingVertical: 8,
                 borderRadius: 999,
                 backgroundColor: colors.surface,
                 borderWidth: 1,
                 borderColor: colors.border,
               }}
             >
-              <Text style={{ color: colors.textPrimary, fontWeight: "700" }}>Up Next</Text>
+              <Text style={{ color: colors.textPrimary, fontWeight: "700", fontSize: 13 }}>Up Next</Text>
             </Pressable>
           </View>
         {/* </ScrollView> */}
@@ -507,14 +540,14 @@ const renderItem = ({ item, drag, isActive }: any) => {
             <Pressable
               style={{
                 backgroundColor: colors.surface,
-                borderTopLeftRadius: 20,
-                borderTopRightRadius: 20,
-                padding: 20,
+                borderTopLeftRadius: 18,
+                borderTopRightRadius: 18,
+                padding: 16,
                 borderTopWidth: 1,
                 borderColor: colors.border,
               }}
             >
-              <Text style={{ color: colors.textMuted, fontSize: 12, letterSpacing: 1.1, marginBottom: 10 }}>
+              <Text style={{ color: colors.textMuted, fontSize: 11, letterSpacing: 1.1, marginBottom: 8 }}>
                 SONG ACTIONS
               </Text>
 
@@ -523,15 +556,15 @@ const renderItem = ({ item, drag, isActive }: any) => {
                   setAddToPlaylistVisible(true);
                   closeMenu();
                 }}
-                style={{ paddingVertical: 14 }}
+                style={{ paddingVertical: 10 }}
               >
-                <Text style={{ color: colors.textPrimary, fontSize: 16 }}>
+                <Text style={{ color: colors.textPrimary, fontSize: 14 }}>
                   Add to Playlist
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={closeMenu} style={{ paddingVertical: 14 }}>
-                <Text style={{ color: colors.textPrimary, fontSize: 16 }}>Remove from Playlist</Text>
+              <TouchableOpacity onPress={closeMenu} style={{ paddingVertical: 10 }}>
+                <Text style={{ color: colors.textPrimary, fontSize: 14 }}>Remove from Playlist</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -539,15 +572,15 @@ const renderItem = ({ item, drag, isActive }: any) => {
                   toggleLike(currentSong.id);
                   closeMenu();
                 }}
-                style={{ paddingVertical: 14 }}
+                style={{ paddingVertical: 10 }}
               >
-                <Text style={{ color: colors.textPrimary, fontSize: 16 }}>
+                <Text style={{ color: colors.textPrimary, fontSize: 14 }}>
                   {isLiked(currentSong.id) ? "Unlike Song" : "Like Song"}
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={onShareSong} style={{ paddingVertical: 14 }}>
-                <Text style={{ color: colors.textPrimary, fontSize: 16 }}>Share</Text>
+              <TouchableOpacity onPress={onShareSong} style={{ paddingVertical: 10 }}>
+                <Text style={{ color: colors.textPrimary, fontSize: 14 }}>Share</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -555,9 +588,9 @@ const renderItem = ({ item, drag, isActive }: any) => {
                   closeMenu();
                   router.push(`/player/${currentSong.id}`);
                 }}
-                style={{ paddingVertical: 14 }}
+                style={{ paddingVertical: 10 }}
               >
-                <Text style={{ color: colors.textPrimary, fontSize: 16 }}>Details</Text>
+                <Text style={{ color: colors.textPrimary, fontSize: 14 }}>Details</Text>
               </TouchableOpacity>
             </Pressable>
           </Pressable>

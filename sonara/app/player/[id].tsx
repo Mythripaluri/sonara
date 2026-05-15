@@ -28,10 +28,10 @@ export default function PlayerScreen() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
+      contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={{ color: colors.textMuted, fontSize: 12, letterSpacing: 1.1 }}>
+      <Text style={{ color: colors.textMuted, fontSize: 11, letterSpacing: 1.1 }}>
         TRACK DETAIL
       </Text>
 
@@ -42,10 +42,10 @@ export default function PlayerScreen() {
             contentFit="cover"
             cachePolicy="memory-disk"
             transition={150}
-            style={{ width: 280, height: 280, borderRadius: 28, marginTop: 16, backgroundColor: "#111" }}
+            style={{ width: 240, height: 240, borderRadius: 20, marginTop: 12, backgroundColor: "#111" }}
           />
 
-          <Text style={{ color: colors.textPrimary, fontSize: 28, fontWeight: "800", marginTop: 18 }}>
+          <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: "800", marginTop: 14 }}>
             {normalizeTrack(song.title).title}
           </Text>
           <Text style={{ color: colors.textMuted, marginTop: 6 }}>

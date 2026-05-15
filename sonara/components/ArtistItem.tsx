@@ -6,13 +6,13 @@ export default function ArtistItem({ item, onPress }) {
 		<TouchableOpacity
 			activeOpacity={0.9}
 			onPress={onPress}
-			style={{ width: 96, marginRight: 14 }}
+			style={{ width: 84, marginRight: 10 }}
 		>
 			<View
 			style={{
-				width: 96,
-				height: 96,
-				borderRadius: 48,
+				width: 84,
+				height: 84,
+				borderRadius: 42,
 				backgroundColor: "#222",
 			}}
 			>
@@ -21,16 +21,16 @@ export default function ArtistItem({ item, onPress }) {
 					contentFit="cover"
 					cachePolicy="memory-disk"
 					transition={150}
-					style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: "#111" }}
+					style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: "#111" }}
 				/>
 			</View>
 			<Text
 				numberOfLines={1}
-				style={{ color: "#fff", marginTop: 10, fontWeight: "700" }}
+				style={{ color: "#fff", marginTop: 8, fontWeight: "700", fontSize: 13 }}
 			>
 				{item.name}
 			</Text>
-			<Text numberOfLines={1} style={{ color: "#94A3B8", fontSize: 12 }}>
+			<Text numberOfLines={1} style={{ color: "#94A3B8", fontSize: 11 }}>
 				{item.genre}
 			</Text>
 		</TouchableOpacity>

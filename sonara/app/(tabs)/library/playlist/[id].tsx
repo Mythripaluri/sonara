@@ -1,7 +1,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native";
+import { Alert, Modal, Pressable, FlatList, Share, Text, TextInput, View } from "react-native";
 import { AddToPlaylistModal } from "../../../../components/AddToPlaylistModal";
 import SongItem from "../../../../components/SongItem";
 import { useAppMessage } from "../../../../context/AppMessageContext";
@@ -248,38 +248,40 @@ export default function PlaylistDetailScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 150 }} showsVerticalScrollIndicator={false}>
-        <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>
-          <Text style={{ color: colors.textMuted, fontSize: 11, letterSpacing: 1.1 }}>TRACKS</Text>
-        </View>
-
-        {playlist.songs.length === 0 ? (
+      <FlatList
+        data={playlist?.songs || []}
+        keyExtractor={(song) => song.id}
+        contentContainerStyle={{ paddingBottom: 150 }}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>
+            <Text style={{ color: colors.textMuted, fontSize: 11, letterSpacing: 1.1 }}>TRACKS</Text>
+          </View>
+        }
+        renderItem={({ item: song }) => (
+          <SongItem
+            song={song}
+            onPress={(track) => playSong(normalizeTrackForPlayer(track), playlist!.songs.map((item) => normalizeTrackForPlayer(item)))}
+            onLongPress={() => handleRemoveSong(song)}
+            onAddToPlaylist={(track) => {
+              setSelectedSong(track);
+              setAddToPlaylistVisible(true);
+            }}
+            menuActions={[
+              { label: "Play next", icon: "skip-next", onPress: () => enqueueNext(normalizeTrackForPlayer(song)) },
+              { label: "Add to queue", icon: "queue-music", onPress: () => enqueueLast(normalizeTrackForPlayer(song)) },
+              { label: "Remove", icon: "delete-outline", destructive: true, onPress: () => handleRemoveSong(song) },
+            ]}
+          />
+        )}
+        ListEmptyComponent={
           <View style={{ margin: 16, padding: 20, borderRadius: 18, backgroundColor: colors.surface }}>
             <Text style={{ color: colors.textPrimary, fontWeight: "700" }}>No songs yet</Text>
             <Text style={{ color: colors.textMuted, marginTop: 8 }}>Add tracks from Search to build this playlist.</Text>
           </View>
-        ) : (
-          <View style={{ gap: 4 }}>
-            {playlist.songs.map((song) => (
-              <SongItem
-                key={song.id}
-                song={song}
-                onPress={(track) => playSong(normalizeTrackForPlayer(track), playlist.songs.map((item) => normalizeTrackForPlayer(item)))}
-                onLongPress={() => handleRemoveSong(song)}
-                onAddToPlaylist={(track) => {
-                  setSelectedSong(track);
-                  setAddToPlaylistVisible(true);
-                }}
-                menuActions={[
-                  { label: "Play next", icon: "skip-next", onPress: () => enqueueNext(normalizeTrackForPlayer(song)) },
-                  { label: "Add to queue", icon: "queue-music", onPress: () => enqueueLast(normalizeTrackForPlayer(song)) },
-                  { label: "Remove", icon: "delete-outline", destructive: true, onPress: () => handleRemoveSong(song) },
-                ]}
-              />
-            ))}
-          </View>
-        )}
-      </ScrollView>
+        }
+        scrollIndicatorInsets={{ right: 1 }}
+      />
 
       {menuVisible ? (
         <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>

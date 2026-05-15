@@ -73,9 +73,9 @@ export default function MiniPlayer() {
           style={{
             flexDirection: "row",
             alignItems: "center",
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            minHeight: 60,
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+            minHeight: 56,
           }}
         >
           <Image
@@ -83,10 +83,10 @@ export default function MiniPlayer() {
             resizeMode="cover"
             fadeDuration={0}
             style={{
-              width: 52,
-              height: 52,
-              borderRadius: 10,
-              marginRight: 10,
+              width: 48,
+              height: 48,
+              borderRadius: 8,
+              marginRight: 8,
               backgroundColor: "#111",
             }}
           />

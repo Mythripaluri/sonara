@@ -26,26 +26,26 @@ export const PlaylistCard: React.FC<PlaylistCardProps> = ({
       style={({ pressed }) => [
         {
           backgroundColor: colors.surfaceElevated,
-          borderRadius: 14,
-          padding: 12,
-          marginVertical: 4,
-          marginHorizontal: 12,
+          borderRadius: 12,
+          padding: 10,
+          marginVertical: 2,
+          marginHorizontal: 8,
           flexDirection: "row",
           alignItems: "center",
           opacity: pressed ? 0.8 : 1,
         },
       ]}
     >
-      <View style={{ width: 76, height: 76, borderRadius: 16, marginRight: 12, backgroundColor: "#111" }}>
+      <View style={{ width: 68, height: 68, borderRadius: 12, marginRight: 10, backgroundColor: "#111" }}>
         <Image
           source={{ uri: playlist.artwork }}
           contentFit="cover"
           cachePolicy="memory-disk"
           transition={150}
-          style={{ width: 76, height: 76, borderRadius: 16 }}
+          style={{ width: 68, height: 68, borderRadius: 12 }}
         />
-        <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0, 0, 0, 0.28)", justifyContent: "center", alignItems: "center", borderRadius: 16 }}>
-          <MaterialIcons name="playlist-play" size={28} color="#fff" />
+        <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0, 0, 0, 0.28)", justifyContent: "center", alignItems: "center", borderRadius: 12 }}>
+          <MaterialIcons name="playlist-play" size={24} color="#fff" />
         </View>
       </View>
 

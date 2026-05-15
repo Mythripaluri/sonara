@@ -32,8 +32,8 @@ function SongItem({
   highlightQuery = "",
   onAddToPlaylist = null,
   menuActions = null,
-  imageSize = 58,
-  imageBorderRadius = 12,
+  imageSize = 54,
+  imageBorderRadius = 10,
 }: SongItemProps) {
   const { currentSong } = usePlayer();
   const [menuVisible, setMenuVisible] = useState(false);
@@ -75,11 +75,11 @@ function SongItem({
       style={{
         flexDirection: "row",
         alignItems: "center",
-        marginHorizontal: 10,
-        marginVertical: 3,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        borderRadius: 14,
+        marginHorizontal: 8,
+        marginVertical: 2,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        borderRadius: 12,
         backgroundColor: isCurrent ? "rgba(210, 193, 182, 0.15)" : "transparent",
       }}
     >
@@ -102,10 +102,10 @@ function SongItem({
 
       {/* Info */}
       <View style={{ flex: 1 }}>
-        <Text style={{ color: colors.textPrimary, fontWeight: "700", fontSize: 15 }} numberOfLines={1}>
+        <Text style={{ color: colors.textPrimary, fontWeight: "700", fontSize: 14 }} numberOfLines={1}>
           {renderHighlightedTitle(displayTitle)}
         </Text>
-        <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 3 }} numberOfLines={1}>
+        <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }} numberOfLines={1}>
           {displayArtist}
         </Text>
       </View>

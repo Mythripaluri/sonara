@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import Seo from "../../components/Seo";
 import SongItem from "../../components/SongItem";
+import { SongItemSkeleton, AlbumCardSkeleton } from "../../components/SkeletonLoader";
 import { usePlayer } from "../../context/PlayerContext";
 import { usePlaylist } from "../../hooks/usePlaylist";
 import { useMusicCatalog } from "../../hooks/useMusicCatalog";
