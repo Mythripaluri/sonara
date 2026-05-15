@@ -20,7 +20,7 @@ export default function SearchScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const [query, setQuery] = useState("");
-  const debouncedQuery = useDebounce(query, 400);
+  const debouncedQuery = useDebounce(query, 300);
   const lastQueryRef = useRef("");
   const { playSong, enqueueSong, enqueueNext } = usePlayer();
   const { tracks: featuredTracks } = useMusicCatalog();
@@ -333,6 +333,8 @@ export default function SearchScreen() {
                 <SongItem
                   key={track.id}
                   song={track}
+                  imageSize={58}
+                  imageBorderRadius={12}
                   onPress={(song: Track) => playSong(normalizeTrackForPlayer(song), resultTracks.map((item) => normalizeTrackForPlayer(item)))}
                   menuActions={[
                     {
@@ -375,6 +377,8 @@ export default function SearchScreen() {
             <SongItem
               key={song.id}
               song={song}
+              imageSize={58}
+              imageBorderRadius={12}
               onPress={(track: Track) => playSong(normalizeTrackForPlayer(track), featuredTracks.map((item) => normalizeTrackForPlayer(item)))}
               onLongPress={(track: Track) => {
                 setSelectedSongForPlaylist(track);

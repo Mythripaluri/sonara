@@ -2,8 +2,9 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Image, Modal, Pressable, ScrollView, Share, Text, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, ScrollView, Share, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Image } from "expo-image";
 import { AddToPlaylistModal } from "../components/AddToPlaylistModal";
 import { usePlayer } from "../context/PlayerContext";
 import { usePlayerStore } from "../store/playerStore";
@@ -248,7 +249,15 @@ const renderItem = ({ item, drag, isActive }: any) => {
             {currentSong.artwork ? (
               <Image
                 source={{ uri: currentSong.artwork }}
-                style={{ width: "85%", aspectRatio: 1, borderRadius: 16 }}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={150}
+                style={{
+                  width: 280,
+                  height: 280,
+                  borderRadius: 16,
+                  backgroundColor: "#111",
+                }}
               />
             ) : (
               <View
@@ -370,8 +379,12 @@ const renderItem = ({ item, drag, isActive }: any) => {
                 color="#fff"
               />
             </Pressable>
-
-            <Pressable onPress={() => void playNext()} style={{ padding: 20 }}>
+            
+            <Pressable
+              disabled={trackLoading}
+              onPress={() => void playNext()}
+              style={{ padding: 20 }}
+            >
               <Ionicons name="play-skip-forward" size={28} color="#fff" />
             </Pressable>
           </View>

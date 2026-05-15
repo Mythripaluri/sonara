@@ -3,6 +3,7 @@ import { ImageBackground, Pressable, Text, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 import type { Playlist } from "../store/playlistStore";
+import { Image } from "expo-image";
 
 interface PlaylistCardProps {
   playlist: Playlist;
@@ -35,27 +36,18 @@ export const PlaylistCard: React.FC<PlaylistCardProps> = ({
         },
       ]}
     >
-      <ImageBackground
-        source={{ uri: playlist.artwork }}
-        style={{
-          width: 56,
-          height: 56,
-          borderRadius: 10,
-          marginRight: 12,
-          overflow: "hidden",
-        }}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0, 0, 0, 0.28)",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
+      <View style={{ width: 76, height: 76, borderRadius: 16, marginRight: 12, backgroundColor: "#111" }}>
+        <Image
+          source={{ uri: playlist.artwork }}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={150}
+          style={{ width: 76, height: 76, borderRadius: 16 }}
+        />
+        <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0, 0, 0, 0.28)", justifyContent: "center", alignItems: "center", borderRadius: 16 }}>
           <MaterialIcons name="playlist-play" size={28} color="#fff" />
         </View>
-      </ImageBackground>
+      </View>
 
       {/* Playlist Info */}
       <View style={{ flex: 1 }}>

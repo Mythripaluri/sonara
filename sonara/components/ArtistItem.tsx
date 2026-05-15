@@ -1,4 +1,5 @@
-import { Image, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
+import { Image } from "expo-image";
 
 export default function ArtistItem({ item, onPress }) {
 	return (
@@ -8,17 +9,19 @@ export default function ArtistItem({ item, onPress }) {
 			style={{ width: 96, marginRight: 14 }}
 		>
 			<View
-				style={{
-					width: 96,
-					height: 96,
-					borderRadius: 48,
-					overflow: "hidden",
-					backgroundColor: "#222",
-				}}
+			style={{
+				width: 96,
+				height: 96,
+				borderRadius: 48,
+				backgroundColor: "#222",
+			}}
 			>
 				<Image
 					source={{ uri: item.artwork }}
-					style={{ width: 96, height: 96 }}
+					contentFit="cover"
+					cachePolicy="memory-disk"
+					transition={150}
+					style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: "#111" }}
 				/>
 			</View>
 			<Text

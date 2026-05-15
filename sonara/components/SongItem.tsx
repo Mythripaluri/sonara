@@ -1,10 +1,11 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { useState } from "react";
-import { Image, Modal, Pressable, Text, View, Share } from "react-native";
+import { memo, useState } from "react";
+import { Modal, Pressable, Text, View, Share } from "react-native";
 import { usePlayer } from "../context/PlayerContext";
 import { colors } from "../theme/colors";
 import type { Track } from "../constants/catalog";
 import { decodeHtmlEntities, normalizeTrack} from "../utils/cleanTitle";
+import { Image } from "expo-image";
 
 export type SongMenuAction = {
   label: string;
@@ -20,15 +21,19 @@ type SongItemProps = {
   highlightQuery?: string;
   onAddToPlaylist?: ((song: Track) => void) | null;
   menuActions?: SongMenuAction[] | null;
+  imageSize?: number;
+  imageBorderRadius?: number;
 };
 
-export default function SongItem({
+function SongItem({
   song,
   onPress,
   onLongPress,
   highlightQuery = "",
   onAddToPlaylist = null,
   menuActions = null,
+  imageSize = 58,
+  imageBorderRadius = 12,
 }: SongItemProps) {
   const { currentSong } = usePlayer();
   const [menuVisible, setMenuVisible] = useState(false);
@@ -71,9 +76,9 @@ export default function SongItem({
         flexDirection: "row",
         alignItems: "center",
         marginHorizontal: 10,
-        marginVertical: 2,
-        paddingHorizontal: 10,
-        paddingVertical: 8,
+        marginVertical: 3,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
         borderRadius: 14,
         backgroundColor: isCurrent ? "rgba(210, 193, 182, 0.15)" : "transparent",
       }}
@@ -83,12 +88,15 @@ export default function SongItem({
       {/* Artwork */}
       <Image
         source={{ uri: song.artwork }}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+        transition={150}
         style={{
-          width: 48,
-          height: 48,
-          borderRadius: 8,
-          backgroundColor: "#333",
-          marginRight: 12,
+          width: imageSize,
+          height: imageSize,
+          borderRadius: imageBorderRadius,
+          backgroundColor: "#111",
+          marginRight: 10,
         }}
       />
 
@@ -226,3 +234,5 @@ export default function SongItem({
     </Pressable>
   );
 }
+
+export default memo(SongItem);

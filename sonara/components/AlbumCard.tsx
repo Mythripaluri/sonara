@@ -1,5 +1,6 @@
 import { ImageBackground, Pressable, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 
 export default function AlbumCard({ item, onOpen, onPlay }) {
   return (

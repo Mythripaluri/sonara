@@ -9,6 +9,7 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
+import { Image } from "expo-image";
 import { MaterialIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 
@@ -78,17 +79,25 @@ export const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
           }}
         >
           <View style={{ alignItems: "center", paddingHorizontal: 16, marginBottom: 18 }}>
-            <ImageBackground
-              source={{ uri: "https://picsum.photos/seed/sonara-playlist-cover/800/800" }}
-              imageStyle={{ borderRadius: 20 }}
-              style={{ width: 132, height: 132, borderRadius: 20, overflow: "hidden" }}
-            >
+            <View style={{ width: 132, height: 132, borderRadius: 20, marginBottom: 0, backgroundColor: "#111" }}>
+              <Image
+                source={{ uri: "https://picsum.photos/seed/sonara-playlist-cover/800/800" }}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={150}
+                style={{ width: 132, height: 132, borderRadius: 20 }}
+              />
               <View
                 style={{
-                  flex: 1,
-                  backgroundColor: "rgba(0, 0, 0, 0.24)",
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
                   justifyContent: "center",
                   alignItems: "center",
+                  backgroundColor: "rgba(0, 0, 0, 0.24)",
+                  borderRadius: 20,
                 }}
               >
                 <MaterialIcons name="image" size={36} color="#fff" />
@@ -96,7 +105,7 @@ export const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
                   Cover placeholder
                 </Text>
               </View>
-            </ImageBackground>
+            </View>
           </View>
 
           {/* Header */}

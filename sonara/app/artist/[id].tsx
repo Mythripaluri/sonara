@@ -1,6 +1,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Image, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import { Image } from "expo-image";
 import { artists } from "../../constants/catalog";
 import { usePlayer } from "../../context/PlayerContext";
 import { colors } from "../../theme/colors";
@@ -34,7 +35,7 @@ export default function ArtistDetailScreen() {
         <MaterialIcons name="keyboard-arrow-left" size={32} color="#fff" />
       </Pressable>
 
-      <Image source={{ uri: artist?.artwork || artistSongs[0]?.artwork }} style={{ width: 180, height: 180, borderRadius: 90, marginTop: 18, alignSelf: "center", backgroundColor: colors.surface }} />
+      <Image source={{ uri: artist?.artwork || artistSongs[0]?.artwork }} contentFit="cover" cachePolicy="memory-disk" transition={150} style={{ width: 180, height: 180, borderRadius: 90, marginTop: 18, alignSelf: "center", backgroundColor: "#111" }} />
       <Text style={{ color: colors.textPrimary, fontSize: 28, fontWeight: "800", marginTop: 18, textAlign: "center" }}>{artistName}</Text>
       <Text style={{ color: colors.textMuted, marginTop: 6, textAlign: "center" }}>{artist?.genre || "Artist"}</Text>
 

@@ -1,9 +1,10 @@
 import { useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { AddToPlaylistModal } from "../../components/AddToPlaylistModal";
 import { usePlayer } from "../../context/PlayerContext";
 import { colors } from "../../theme/colors";
+import { Image } from "expo-image";
 import { normalizeTrack } from "../../utils/cleanTitle";
 import { normalizeTrackForPlayer } from "../../utils/normalizeTrackForPlayer";
 
@@ -38,7 +39,10 @@ export default function PlayerScreen() {
         <>
           <Image
             source={{ uri: song.artwork }}
-            style={{ width: "100%", height: 280, borderRadius: 28, marginTop: 16, backgroundColor: colors.surface }}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={150}
+            style={{ width: 280, height: 280, borderRadius: 28, marginTop: 16, backgroundColor: "#111" }}
           />
 
           <Text style={{ color: colors.textPrimary, fontSize: 28, fontWeight: "800", marginTop: 18 }}>

@@ -7,6 +7,7 @@ import {
   FlatList,
   ActivityIndicator,
 } from "react-native";
+import { Image } from "expo-image";
 import { MaterialIcons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 import { usePlaylist } from "../hooks/usePlaylist";

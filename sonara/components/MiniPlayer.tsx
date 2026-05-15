@@ -75,17 +75,19 @@ export default function MiniPlayer() {
             alignItems: "center",
             paddingHorizontal: 12,
             paddingVertical: 8,
-            minHeight: 66,
+            minHeight: 60,
           }}
         >
           <Image
             source={{ uri: currentSong.artwork }}
+            resizeMode="cover"
+            fadeDuration={0}
             style={{
-              width: 42,
-              height: 42,
+              width: 52,
+              height: 52,
               borderRadius: 10,
-              marginRight: 12,
-              backgroundColor: "#333",
+              marginRight: 10,
+              backgroundColor: "#111",
             }}
           />
 
@@ -95,7 +97,7 @@ export default function MiniPlayer() {
               style={{
                 color: colors.textPrimary,
                 fontWeight: "700",
-                fontSize: 13,
+                fontSize: 14,
               }}
             >
               {normalizeTrack(currentSong.title).title}
@@ -106,7 +108,7 @@ export default function MiniPlayer() {
               style={{
                 color: colors.textMuted,
                 fontSize: 11,
-                marginTop: 2,
+                marginTop: 1,
               }}
             >
               {normalizeTrack(currentSong.title).artist || currentSong.artist}
@@ -121,7 +123,7 @@ export default function MiniPlayer() {
               borderRadius: 17,
               justifyContent: "center",
               alignItems: "center",
-              marginRight: 6,
+              marginRight: 4,
             }}
           >
             <Ionicons name="chevron-up" size={18} color={colors.textMuted} />

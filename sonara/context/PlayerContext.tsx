@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Audio, type AVPlaybackStatus } from "expo-av";
+import { Image } from "react-native";
 import {
   createContext,
   useCallback,
@@ -114,6 +115,8 @@ const resolveTrack = (track: Track | null, tracks: Track[]): Track | null => {
 
 export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const soundRef = useRef<Audio.Sound | null>(null);
+  const nextSoundRef = useRef<Audio.Sound | null>(null);
+  const audioUrlCacheRef = useRef<Map<string, string>>(new Map());
   const queueRef = useRef<Track[]>(defaultQueue);
   const currentIndexRef = useRef(-1);
   const currentSongRef = useRef<Track | null>(null);
@@ -275,151 +278,326 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }
 
     soundRef.current.setOnPlaybackStatusUpdate(null);
-    soundRef.current = null;
   }, []);
 
-  const loadAndPlayTrack = useCallback(
-    async (track: Track, options: PlaySongOptions = {}, loadRequestId?: number) => {
-      const activeLoadRequestId = loadRequestId ?? ++loadRequestIdRef.current;
-      const isCurrentLoadRequest = () => loadRequestIdRef.current === activeLoadRequestId;
+  const ensureSoundInstance = useCallback(async () => {
+    if (!soundRef.current) {
+      soundRef.current = new Audio.Sound();
+    }
 
-      setIsBuffering(true);
-      setTrackLoading(true);
-      setTrackError(null);
-      if (options.autoplay !== false) {
-        setIsPlaying(true);
-      }
+    return soundRef.current;
+  }, []);
 
-      const nextSound = new Audio.Sound();
+  const resolveAudioUrlWithTimeout = useCallback(async (track: Track, forceRefresh = false, preloadedAudioUrl?: string) => {
+    if (preloadedAudioUrl) {
+      return preloadedAudioUrl;
+    }
 
+    const cachedUrl = !forceRefresh ? audioUrlCacheRef.current.get(track.id) : undefined;
+    if (cachedUrl) {
+      return cachedUrl;
+    }
+
+    const fetchPromise = getAudioUrl(track, { forceRefresh });
+    const timeoutPromise = new Promise<string | null>((_, reject) => {
+      setTimeout(() => reject(new Error("Audio URL resolution timed out")), 4000);
+    });
+
+    const audioUrl = await Promise.race([fetchPromise, timeoutPromise]);
+
+    if (audioUrl) {
+      audioUrlCacheRef.current.set(track.id, audioUrl);
+    }
+
+    return audioUrl;
+  }, []);
+
+  const preloadNextTrack = useCallback(async (
+    track: Track | undefined
+  ) => {
+    if (!track?.url) {
+      // Try to resolve URL if not available
+      if (!track?.id) return;
       try {
-        const playbackOptions = {
-          shouldPlay: options.autoplay !== false,
-          positionMillis:
-            typeof options.startPositionSeconds === "number" && options.startPositionSeconds > 0
-              ? Math.floor(options.startPositionSeconds * 1000)
-              : 0,
-        };
-
-        const loadFromResolvedStream = async (forceRefresh = false) => {
-          const audioUrl =
-            !forceRefresh && options.preloadedAudioUrl
-              ? options.preloadedAudioUrl
-              : await getAudioUrl(track, { forceRefresh });
-
-          if (!audioUrl) {
-            console.warn("[Player] NO AUDIO URL", track);
-            throw new Error("No audio URL available for track");
-          }
-
-          await nextSound.loadAsync({ uri: audioUrl }, playbackOptions, true);
-        };
-
-        const retryPlan = [false, false, true];
-        let lastLoadError = null;
-
-        for (let attempt = 0; attempt < retryPlan.length; attempt += 1) {
-          try {
-            await loadFromResolvedStream(retryPlan[attempt]);
-
-            if (!isCurrentLoadRequest()) {
-              try {
-                await nextSound.unloadAsync();
-              } catch {
-                // Ignore cleanup failures for an abandoned load.
-              }
-
-              return;
-            }
-
-            lastLoadError = null;
-            break;
-          } catch (error) {
-            if (!isCurrentLoadRequest()) {
-              try {
-                await nextSound.unloadAsync();
-              } catch {
-                // Ignore cleanup failures for an abandoned load.
-              }
-
-              return;
-            }
-
-            lastLoadError = error;
-            const isLastAttempt = attempt === retryPlan.length - 1;
-
-            if (isLastAttempt) {
-              throw error;
-            }
-
-            console.log(
-              `[Player] Load attempt ${attempt + 1} failed, retrying${retryPlan[attempt + 1] ? " with refresh" : ""}`,
-            );
-          }
-        }
-
-        if (lastLoadError) {
-          throw lastLoadError;
-        }
-
-        if (!isCurrentLoadRequest()) {
-          try {
-            await nextSound.unloadAsync();
-          } catch {
-            // Ignore cleanup failures for an abandoned load.
-          }
-
-          return;
-        }
-
-        nextSound.setOnPlaybackStatusUpdate(updateFromPlaybackStatus);
-
-        const previousSound = soundRef.current;
-        soundRef.current = nextSound;
-
-        if (previousSound) {
-          try {
-            previousSound.setOnPlaybackStatusUpdate(null);
-            await previousSound.unloadAsync();
-          } catch {
-            // Ignore unload errors from race conditions.
-          }
-        }
-
-        if (options.autoplay === false) {
-          playbackStartedAtRef.current = null;
-          setIsPlaying(false);
-        } else {
-          playbackStartedAtRef.current = Date.now();
-          setIsPlaying(true);
-        }
-      } catch (loadError) {
-        if (!isCurrentLoadRequest()) {
-          try {
-            await nextSound.unloadAsync();
-          } catch {
-            // Ignore cleanup failures for an abandoned load.
-          }
-
-          return;
-        }
-
-        try {
-          await nextSound.unloadAsync();
-        } catch {
-          // Ignore cleanup failures for a sound that never loaded.
-        }
-
-        setIsPlaying(false);
-        setTrackError(loadError instanceof Error ? loadError.message : "Unable to load track");
-        throw loadError;
-      } finally {
-        setIsBuffering(false);
-        setTrackLoading(false);
+        const url = await resolveAudioUrlWithTimeout(track);
+        if (!url) return;
+      } catch {
+        return;
       }
-    },
-    [updateFromPlaybackStatus],
-  );
+    }
+
+    try {
+      if (nextSoundRef.current) {
+        await nextSoundRef.current.unloadAsync();
+        nextSoundRef.current = null;
+      }
+
+      const preloadSound = new Audio.Sound();
+      const urlToLoad = track.url || (await resolveAudioUrlWithTimeout(track));
+
+      if (!urlToLoad) {
+        return;
+      }
+
+      const loadStart = Date.now();
+
+      console.log(
+        "[Player] LOADING AUDIO",
+        loadStart,
+      track.id
+      );
+
+      await preloadSound.loadAsync(
+        { uri: urlToLoad },
+        {
+          shouldPlay: false,
+        },
+        false
+      );
+
+      nextStreamRef.current = {
+        trackId: track.id,
+        url: urlToLoad,
+      };
+
+      nextSoundRef.current = preloadSound;
+
+      console.log(
+        "[Player] NEXT TRACK PRELOADED",
+        track.id
+      );
+    } catch (error) {
+      console.warn(
+        "[Player] PRELOAD FAILED",
+        error instanceof Error ? error.message : String(error)
+      );
+      nextSoundRef.current = null;
+    }
+  }, [resolveAudioUrlWithTimeout]);
+
+const loadAndPlayTrack = useCallback(
+  async (
+    track: Track,
+    options: PlaySongOptions = {},
+    loadRequestId?: number
+  ) => {
+    const activeLoadRequestId =
+      loadRequestId ?? ++loadRequestIdRef.current;
+
+    const isCurrentLoadRequest = () =>
+      loadRequestIdRef.current === activeLoadRequestId;
+
+    setIsBuffering(true);
+    setTrackLoading(true);
+    setTrackError(null);
+
+    if (options.autoplay !== false) {
+      setIsPlaying(true);
+    }
+
+    try {
+      // =========================================
+      // USE PRELOADED AUDIO IF AVAILABLE
+      // =========================================
+      if (
+        nextSoundRef.current &&
+        nextStreamRef.current?.trackId === track.id
+      ) {
+        console.log(
+          "[Player] USING PRELOADED AUDIO",
+          track.id
+        );
+
+        // unload currently playing sound
+        if (soundRef.current) {
+          try {
+            await soundRef.current.unloadAsync();
+          } catch {
+            // ignore cleanup errors
+          }
+        }
+
+        // swap preloaded sound into active sound
+        soundRef.current = nextSoundRef.current;
+
+        nextSoundRef.current = null;
+
+        soundRef.current.setOnPlaybackStatusUpdate(
+          updateFromPlaybackStatus
+        );
+
+        await soundRef.current.playAsync();
+
+        console.log(
+          "[Player] PLAYBACK STARTED",
+          Date.now(),
+          track.id
+        );
+
+        setIsPlaying(true);
+        setTrackLoading(false);
+        setIsBuffering(false);
+
+        // preload next track
+        const liveQueue =
+          queueRef.current.length > 0
+            ? queueRef.current
+            : defaultQueue;
+
+        const currentIdx = liveQueue.findIndex(
+          (t) => t.id === track.id
+        );
+
+        const upcomingTrack =
+          liveQueue[currentIdx + 1];
+
+        if (upcomingTrack) {
+          void preloadNextTrack(upcomingTrack);
+        }
+
+        return;
+      }
+
+      // =========================================
+      // NORMAL LOAD FLOW
+      // =========================================
+      console.log(
+        "[Player] RESOLVING URL",
+        Date.now(),
+        track.id
+      );
+
+      const audioUrl =
+        await resolveAudioUrlWithTimeout(
+          track,
+          false,
+          options.preloadedAudioUrl
+        );
+
+      if (!audioUrl) {
+        throw new Error(
+          "No audio URL available"
+        );
+      }
+
+      console.log(
+        "[Player] URL RESOLVED",
+        Date.now(),
+        track.id
+      );
+
+      if (!isCurrentLoadRequest()) {
+        return;
+      }
+
+      console.log(
+        "[Player] LOADING AUDIO",
+        Date.now(),
+        track.id
+      );
+
+      // unload previous sound
+      if (soundRef.current) {
+        try {
+          await soundRef.current.unloadAsync();
+        } catch {
+          // ignore unload errors
+        }
+      }
+
+      const sound = new Audio.Sound();
+
+      soundRef.current = sound;
+
+      await sound.loadAsync(
+        { uri: audioUrl },
+        {
+          shouldPlay: false,
+          positionMillis:
+            typeof options.startPositionSeconds ===
+              "number" &&
+            options.startPositionSeconds > 0
+              ? Math.floor(
+                  options.startPositionSeconds *
+                    1000
+                )
+              : 0,
+        },
+        false
+      );
+
+      if (!isCurrentLoadRequest()) {
+        try {
+          await sound.unloadAsync();
+        } catch {}
+
+        return;
+      }
+
+      sound.setOnPlaybackStatusUpdate(
+        updateFromPlaybackStatus
+      );
+
+      if (options.autoplay === false) {
+        playbackStartedAtRef.current = null;
+        setIsPlaying(false);
+      } else {
+        playbackStartedAtRef.current =
+          Date.now();
+
+        await sound.playAsync();
+
+        console.log(
+          "[Player] PLAYBACK STARTED",
+          Date.now(),
+          track.id
+        );
+
+        setIsPlaying(true);
+
+        // =========================================
+        // PRELOAD NEXT TRACK
+        // =========================================
+        const liveQueue =
+          queueRef.current.length > 0
+            ? queueRef.current
+            : defaultQueue;
+
+        const currentIdx = liveQueue.findIndex(
+          (t) => t.id === track.id
+        );
+
+        const nextTrack =
+          liveQueue[currentIdx + 1];
+
+        if (nextTrack) {
+          void preloadNextTrack(nextTrack);
+        }
+      }
+    } catch (loadError) {
+      console.error(
+        "[Player] Failed to load track:",
+        loadError
+      );
+
+      setIsPlaying(false);
+
+      setTrackError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Unable to load track"
+      );
+    } finally {
+      setIsBuffering(false);
+      setTrackLoading(false);
+    }
+  },
+  [
+    preloadNextTrack,
+    resolveAudioUrlWithTimeout,
+    updateFromPlaybackStatus,
+  ]
+);
 
   const persistState = useCallback(async () => {
     const livePlayerState = usePlayerStore.getState();
@@ -480,6 +658,14 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
       commitPlaybackTime();
       void unloadCurrentSound();
+      
+      // Clean up preloaded sound on unmount
+      if (nextSoundRef.current) {
+        nextSoundRef.current.unloadAsync().catch(() => {
+          // Ignore cleanup errors
+        });
+        nextSoundRef.current = null;
+      }
     };
   }, [commitPlaybackTime, unloadCurrentSound]);
 
@@ -537,7 +723,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
           const restoredIndex = queueToUse.findIndex((item) => item.id === restoredSong.id);
           currentIndexRef.current = restoredIndex;
           currentSongRef.current = restoredSong;
-          nextStreamRef.current = null;
 
           const loadRequestId = ++loadRequestIdRef.current;
 
@@ -621,6 +806,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         if (soundRef.current) {
           await soundRef.current.stopAsync();
         }
+        // Clean up preloaded sound when stopping
+        if (nextSoundRef.current) {
+          await nextSoundRef.current.unloadAsync();
+          nextSoundRef.current = null;
+        }
         return;
       }
 
@@ -634,20 +824,207 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     [removeFromQueueState],
   );
 
-  const playSong = useCallback(
-    async (song: Track, nextQueue: Track[] = defaultQueue, options: PlaySongOptions = {}) => {
-      if (!song) return;
+const playSong = useCallback(
+  async (
+    song: Track,
+    nextQueue: Track[] = defaultQueue,
+    options: PlaySongOptions = {}
+  ) => {
+    if (!song) return;
 
-      const normalizedSong = normalizeTrackForPlayer(song);
-      if (!normalizedSong?.id) return;
+    if (trackLoading) {
+      return;
+    }
 
-      const loadRequestId = ++loadRequestIdRef.current;
-      nextStreamRef.current = null;
+    const normalizedSong = normalizeTrackForPlayer(song);
+
+    if (!normalizedSong?.id) return;
+
+    // =========================
+    // TIMING START
+    // =========================
+    const startTime = Date.now();
+
+    console.log(
+      "[Player] CLICK",
+      startTime,
+      normalizedSong.id
+    );
+
+    const loadRequestId = ++loadRequestIdRef.current;
+
+    // Clear preloaded sound when manually playing a new song
+    // if (nextSoundRef.current) {
+    //   try {
+    //     await nextSoundRef.current.unloadAsync();
+    //   } catch {
+    //     // Ignore cleanup errors
+    //   }
+
+    //   nextSoundRef.current = null;
+    // }
+
+    try {
+      setTrackLoading(true);
+      setTrackError(null);
+
+      // =========================
+      // URL RESOLUTION
+      // =========================
+      console.log(
+        "[Player] RESOLVING URL",
+        Date.now(),
+        normalizedSong.id
+      );
+
+    const audioUrl =
+      options.preloadedAudioUrl ||
+      normalizedSong.url ||
+      (await getAudioUrl(normalizedSong));
+
+      if (!audioUrl) {
+        console.warn(
+          "[Player] NO AUDIO URL",
+          normalizedSong
+        );
+
+        throw new Error(
+          "No audio URL available for track"
+        );
+      }
+
+      const resolvedTime = Date.now();
+
+      console.log(
+        "[Player] URL RESOLVED",
+        resolvedTime,
+        normalizedSong.id
+      );
+
+      console.log(
+        "[Timing] URL Resolution:",
+        (
+          (resolvedTime - startTime) /
+          1000
+        ).toFixed(2),
+        "seconds"
+      );
+
+      // =========================
+      // AUDIO LOADING
+      // =========================
+      const loadStart = Date.now();
+
+      console.log(
+        "[Player] LOADING AUDIO",
+        loadStart,
+        normalizedSong.id
+      );
+
+      // Unload previous sound
+      if (soundRef.current) {
+        try {
+          await soundRef.current.unloadAsync();
+        } catch {
+          // Ignore unload errors
+        }
+      }
+
+      const sound = new Audio.Sound();
+
+      soundRef.current = sound;
+
+      await sound.loadAsync(
+        { uri: audioUrl },
+        {
+          shouldPlay: true,
+          progressUpdateIntervalMillis: 250,
+        },
+        false
+      );
+
+      // =========================
+      // PLAYBACK STARTED
+      // =========================
+      // const playbackStarted = Date.now();
+
+      // console.log(
+      //   "[Player] PLAYBACK STARTED",
+      //   playbackStarted,
+      //   normalizedSong.id
+      // );
+
+      // console.log(
+      //   "[Timing] Audio Load:",
+      //   (
+      //     (playbackStarted - loadStart) /
+      //     1000
+      //   ).toFixed(2),
+      //   "seconds"
+      // );
+
+      // console.log(
+      //   "[Timing] TOTAL STARTUP:",
+      //   (
+      //     (playbackStarted - startTime) /
+      //     1000
+      //   ).toFixed(2),
+      //   "seconds"
+      // );
+
+      // // =========================
+      // // UPDATE PLAYER STATE
+      // // =========================
+      // setCurrentSong(normalizedSong);
+      // setQueue(nextQueue);
+
+      // const nextIndex = nextQueue.findIndex(
+      //   (item) => item.id === normalizedSong.id
+      // );
+
+      // setCurrentIndex(
+      //   nextIndex >= 0 ? nextIndex : 0
+      // );
+
+      // setIsPlaying(true);
+
+      // setTrackLoading(false);
+
+      // // =========================
+      // // PRELOAD NEXT TRACK
+      // // =========================
+      // const upcomingTrack =
+      //   nextQueue[
+      //     (nextIndex >= 0 ? nextIndex : 0) + 1
+      //   ];
+
+      // if (upcomingTrack) {
+      //   void preloadNextTrack(upcomingTrack);
+      // }
+    } catch (loadError) {
+      setIsPlaying(false);
+
+      console.error(
+        "[Player] Failed to load track:",
+        loadError
+      );
+
+      setTrackError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Unable to play track"
+      );
+
+      setTrackLoading(false);
+    }
 
       const queueToUse = normalizeQueue(nextQueue);
       const liveQueue = queueRef.current.length > 0 ? queueRef.current : defaultQueue;
       const initialQueue = queueToUse.length > 0 ? queueToUse : liveQueue;
       const resolvedSong = resolveTrack(normalizedSong, initialQueue) ?? normalizedSong;
+      const previousQueue = queueRef.current;
+      const previousIndex = currentIndexRef.current;
+      const previousSong = currentSongRef.current;
 
       let finalQueue = initialQueue;
       let nextIndex = finalQueue.findIndex((item) => item.id === resolvedSong.id);
@@ -657,18 +1034,33 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         nextIndex = finalQueue.length - 1;
       }
 
+      console.log("[Player] CLICK", Date.now(), resolvedSong.id);
+
       commitPlaybackTime();
-      setPlaybackState(finalQueue, resolvedSong);
       queueRef.current = finalQueue;
       currentIndexRef.current = nextIndex;
       currentSongRef.current = resolvedSong;
-      setCatalogSongs((previous) => mergeUniqueSongs([previous, finalQueue, [resolvedSong]]));
-      rememberRecentlyPlayed(resolvedSong);
+      setPlaybackState(finalQueue, resolvedSong);
+      setIsPlaying(options.autoplay !== false);
+      setTrackLoading(true);
+      setIsBuffering(true);
 
       try {
         await loadAndPlayTrack(resolvedSong, options, loadRequestId);
+        setCatalogSongs((previous) => mergeUniqueSongs([previous, finalQueue, [resolvedSong]]));
+        rememberRecentlyPlayed(resolvedSong);
+
+        const nextTrack = finalQueue[nextIndex + 1];
+        if (nextTrack?.artwork) {
+          void Image.prefetch(nextTrack.artwork);
+        }
       } catch (loadError) {
+        queueRef.current = previousQueue;
+        currentIndexRef.current = previousIndex;
+        currentSongRef.current = previousSong;
         setIsPlaying(false);
+        setTrackLoading(false);
+        setIsBuffering(false);
         console.error("[Player] Failed to load track:", loadError);
         setTrackError(loadError instanceof Error ? loadError.message : "Unable to play track");
       }
@@ -730,6 +1122,52 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       const nextSong = tracks[nextIndex];
       if (!nextSong) return;
 
+      // TRY TO USE PRELOADED AUDIO FIRST
+      if (
+        nextSoundRef.current &&
+        nextStreamRef.current?.trackId === nextSong.id
+      ) {
+        try {
+          if (soundRef.current) {
+            await soundRef.current.unloadAsync();
+          }
+
+          soundRef.current = nextSoundRef.current;
+          nextStreamRef.current = null;
+          nextSoundRef.current = null;
+
+          await soundRef.current.playAsync();
+          console.log(
+            "[Player] PLAYING PRELOADED TRACK",
+            nextSong.id
+          );
+
+          // Update state to reflect the new current song
+          currentIndexRef.current = nextIndex;
+          currentSongRef.current = nextSong;
+          setPlaybackState(tracks, nextSong);
+          setIsPlaying(true);
+          playbackStartedAtRef.current = Date.now();
+          soundRef.current.setOnPlaybackStatusUpdate(updateFromPlaybackStatus);
+
+          // PRELOAD THE FOLLOWING TRACK
+          const upcomingTrack = tracks[nextIndex + 1];
+          if (upcomingTrack) {
+            void preloadNextTrack(upcomingTrack);
+          }
+
+          return;
+        } catch (error) {
+          console.warn(
+            "[Player] PRELOADED PLAY FAILED",
+            error instanceof Error ? error.message : String(error)
+          );
+          soundRef.current = null;
+          nextSoundRef.current = null;
+        }
+      }
+
+      // FALLBACK TO NORMAL LOADING
       const preloadedAudioUrl =
         nextStreamRef.current?.trackId === nextSong.id ? nextStreamRef.current.url : undefined;
 
@@ -737,7 +1175,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
       await playSong(nextSong, tracks, preloadedAudioUrl ? { preloadedAudioUrl } : undefined);
     },
-    [playSong],
+    [playSong, preloadNextTrack, setPlaybackState, updateFromPlaybackStatus],
   );
 
   const ensureCurrentSongInQueue = useCallback(() => {
@@ -897,6 +1335,26 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     setRepeatMode((previous) => cycleRepeatMode(previous));
   }, []);
 
+  const retryCurrentTrack = useCallback(async () => {
+    if (!currentSongRef.current) return;
+    
+    // Clear preloaded sound when retrying
+    if (nextSoundRef.current) {
+      try {
+        await nextSoundRef.current.unloadAsync();
+      } catch {
+        // Ignore cleanup errors
+      }
+      nextSoundRef.current = null;
+    }
+    
+    const liveQueue = queueRef.current.length > 0 ? queueRef.current : defaultQueue;
+    await playSong(currentSongRef.current, liveQueue, {
+      autoplay: true,
+      startPositionSeconds: 0,
+    });
+  }, [playSong]);
+
   const registerCatalogTracks = useCallback((tracks: Track[]) => {
     setCatalogSongs((previous) => mergeUniqueSongs([previous, normalizeQueue(tracks)]));
   }, []);
@@ -947,14 +1405,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     toggleLike,
     isLiked,
     registerCatalogTracks,
-    retryCurrentTrack: async () => {
-      if (!currentSongRef.current) return;
-      const liveQueue = queueRef.current.length > 0 ? queueRef.current : defaultQueue;
-      await playSong(currentSongRef.current, liveQueue, {
-        autoplay: true,
-        startPositionSeconds: 0,
-      });
-    },
+    retryCurrentTrack,
     refreshState: persistState,
   } as unknown as PlayerContextValue;
 

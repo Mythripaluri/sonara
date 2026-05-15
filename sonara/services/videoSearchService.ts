@@ -53,11 +53,30 @@ const setCachedSearchResults = (query: string, results: SearchResult[]) => {
   });
 };
 
+const getHighQualityArtwork = (url?: string) => {
+  if (!url) {
+    return fallbackTracks[0]?.artwork ?? "";
+  }
+
+  return url
+    // iTunes
+    .replace("100x100bb", "1200x1200bb")
+    .replace("200x200bb", "1200x1200bb")
+    .replace("300x300bb", "1200x1200bb")
+    .replace("600x600bb", "1200x1200bb")
+
+    // YouTube
+    .replace(/w60-h60/g, "w1000-h1000")
+    .replace(/w120-h120/g, "w1000-h1000")
+    .replace(/w180-h180/g, "w1000-h1000")
+    .replace(/w300-h300/g, "w1000-h1000");
+};
+
 const buildResolvedTrack = (videoId: string, response: StreamResponse, fallbackTitle: string): Track => ({
   id: videoId,
   title: response.title || fallbackTitle || "Unknown track",
   artist: response.artist || "",
-  artwork: response.image || fallbackTracks[0]?.artwork || "",
+  artwork: getHighQualityArtwork(response.image) || fallbackTracks[0]?.artwork || "",
   url: response.url || "",
   resolvedAudioUrl: response.url || "",
   source: "resolved",
@@ -69,7 +88,7 @@ export const buildTrackFromSearchResult = (result: SearchResult): Track => ({
   id: result.videoId,
   title: result.title || "Unknown track",
   artist: result.artist || "",
-  artwork: result.thumbnail || fallbackTracks[0]?.artwork || "",
+  artwork: getHighQualityArtwork(result.thumbnail) || fallbackTracks[0]?.artwork || "",
   url: "",
   source: "resolved",
   videoId: result.videoId,
