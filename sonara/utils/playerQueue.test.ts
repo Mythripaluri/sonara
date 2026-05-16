@@ -11,6 +11,8 @@ const makeTrack = (id: string): Track => ({
   title: `Track ${id}`,
   artist: "Artist",
   url: `https://example.com/${id}`,
+  artwork: `https://example.com/${id}.jpg`,
+  source: "local",
 });
 
 describe("player queue helpers", () => {

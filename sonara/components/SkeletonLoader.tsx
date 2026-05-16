@@ -6,6 +6,7 @@ import Animated, {
   withRepeat,
   withTiming,
   Easing,
+  interpolateColor,
 } from "react-native-reanimated";
 import { colors } from "../theme/colors";
 
@@ -24,23 +25,28 @@ export const SkeletonLoader = ({
   style = {},
   shimmer = true,
 }: SkeletonLoaderProps) => {
-  const shimmerOpacity = useSharedValue(0.3);
+  const shimmerProgress = useSharedValue(0);
 
   useEffect(() => {
     if (shimmer) {
-      shimmerOpacity.value = withRepeat(
+      shimmerProgress.value = withRepeat(
         withTiming(1, {
-          duration: 1000,
+          duration: 1150,
           easing: Easing.inOut(Easing.ease),
         }),
         -1,
         true
       );
     }
-  }, [shimmer, shimmerOpacity]);
+  }, [shimmer, shimmerProgress]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    opacity: shimmerOpacity.value,
+    opacity: 0.72 + shimmerProgress.value * 0.28,
+    backgroundColor: interpolateColor(
+      shimmerProgress.value,
+      [0, 1],
+      [colors.surfaceElevated, "rgba(125, 211, 252, 0.24)"],
+    ),
   }));
 
   return (
@@ -64,18 +70,18 @@ export const SongItemSkeleton = () => (
     style={{
       flexDirection: "row",
       alignItems: "center",
-      marginHorizontal: 8,
-      marginVertical: 2,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
+      marginHorizontal: 4,
+      marginVertical: 1,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
       borderRadius: 12,
-      backgroundColor: colors.surface,
+      backgroundColor: colors.glass,
     }}
   >
     <SkeletonLoader
-      width={54}
-      height={54}
-      borderRadius={10}
+      width={48}
+      height={48}
+      borderRadius={9}
       style={{ marginRight: 8 }}
     />
     <View style={{ flex: 1 }}>

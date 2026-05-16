@@ -1,13 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import {
-  Image,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { Image } from "expo-image";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { runOnJS } from "react-native-reanimated";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { usePlayer } from "../context/PlayerContext";
 import { colors } from "../theme/colors";
 import { normalizeTrack } from "../utils/cleanTitle";
@@ -17,6 +24,7 @@ export default function MiniPlayer() {
 
   const { currentSong, isPlaying, pause, resume, position, duration } =
     usePlayer();
+  const scale = useSharedValue(1);
 
   const openFullPlayer = () => {
     router.push("/full-player");
@@ -28,6 +36,10 @@ export default function MiniPlayer() {
     }
   });
 
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   if (!currentSong) return null;
 
   const progress = duration ? (position / duration) * 100 : 0;
@@ -35,17 +47,19 @@ export default function MiniPlayer() {
   return (
     <GestureDetector gesture={swipeUpGesture}>
       <Animated.View
-        style={{
+        style={[{
           position: "absolute",
           bottom: 72,
           width: "100%",
           paddingHorizontal: 8,
-        }}
+        }, animatedStyle]}
       >
-      <View
+      <BlurView
+        intensity={32}
+        tint="dark"
         style={{
-          borderRadius: 18,
-          backgroundColor: colors.surfaceElevated,
+          borderRadius: 20,
+          backgroundColor: colors.glass,
           borderWidth: 1,
           borderColor: colors.border,
           overflow: "hidden",
@@ -62,13 +76,26 @@ export default function MiniPlayer() {
             style={{
               width: `${progress}%`,
               height: 2,
-              backgroundColor: colors.player,
+              backgroundColor: "transparent",
             }}
-          />
+          >
+            <LinearGradient
+              colors={["#7DD3FC", "#A78BFA"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ width: "100%", height: "100%" }}
+            />
+          </View>
         </View>
 
         <TouchableOpacity
           onPress={() => router.push("/full-player")}
+          onPressIn={() => {
+            scale.value = withSpring(0.985, { damping: 16, stiffness: 260 });
+          }}
+          onPressOut={() => {
+            scale.value = withSpring(1, { damping: 16, stiffness: 260 });
+          }}
           activeOpacity={0.9}
           style={{
             flexDirection: "row",
@@ -80,14 +107,14 @@ export default function MiniPlayer() {
         >
           <Image
             source={{ uri: currentSong.artwork }}
-            resizeMode="cover"
-            fadeDuration={0}
+            contentFit="cover"
+            transition={120}
             style={{
               width: 48,
               height: 48,
-              borderRadius: 8,
+              borderRadius: 10,
               marginRight: 8,
-              backgroundColor: "#111",
+              backgroundColor: colors.surface,
             }}
           />
 
@@ -152,7 +179,7 @@ export default function MiniPlayer() {
             />
           </TouchableOpacity>
         </TouchableOpacity>
-      </View>
+      </BlurView>
       </Animated.View>
     </GestureDetector>
   );

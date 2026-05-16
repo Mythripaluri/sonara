@@ -1,15 +1,16 @@
-// Dark theme
 export const colors = {
-  background: "#1B3C53",
-  surface: "#234C6A",
-  surfaceElevated: "#456882",
-  player: "#D2C1B6",
-  active: "#D2C1B6",
-  inactive: "#8a9aaa",
-  textPrimary: "#D2C1B6",
-  textSecondary: "#b8a89d",
-  textMuted: "#8a9aaa",
-  border: "#2d5475",
+  background: "#07111F",
+  surface: "#0D1B2E",
+  surfaceElevated: "#13263D",
+  player: "#7DD3FC",
+  active: "#8BDAFF",
+  inactive: "#60748E",
+  textPrimary: "#F5F9FF",
+  textSecondary: "#B9C8D8",
+  textMuted: "#8193A8",
+  border: "#21364F",
+  glass: "rgba(19, 38, 61, 0.68)",
+  glow: "#67E8F9",
 };
 
 export const lightColors = {
@@ -26,12 +27,12 @@ export const lightColors = {
 };
 
 export const gradients = [
-  ["#D2C1B6", "#234C6A"],
-  ["#456882", "#1B3C53"],
-  ["#D2C1B6", "#2d5475"],
-  ["#456882", "#234C6A"],
-  ["#D2C1B6", "#1B3C53"],
-  ["#456882", "#0f1820"],
+  ["#0EA5E9", "#312E81"],
+  ["#22D3EE", "#164E63"],
+  ["#818CF8", "#0F172A"],
+  ["#38BDF8", "#1E3A8A"],
+  ["#A78BFA", "#155E75"],
+  ["#2DD4BF", "#172554"],
 ] as const;
 
-export const heroGradient = ["#456882", "#1B3C53"] as const;
+export const heroGradient = ["#13263D", "#07111F"] as const;

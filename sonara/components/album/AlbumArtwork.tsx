@@ -21,6 +21,14 @@ export default function AlbumArtwork({ artwork }: Props) {
           borderRadius: 32,
           borderWidth: 1,
           borderColor: "rgba(255,255,255,0.06)",
+          shadowColor: "#000",
+          shadowOffset: {
+            width: 0,
+            height: 12,
+          },
+          shadowOpacity: 0.45,
+          shadowRadius: 20,
+          elevation: 24,
         }}
       >
         <Image
@@ -33,15 +41,6 @@ export default function AlbumArtwork({ artwork }: Props) {
             height: 280,
             borderRadius: 24,
             backgroundColor: "#111",
-
-            shadowColor: "#000",
-            shadowOffset: {
-              width: 0,
-              height: 12,
-            },
-            shadowOpacity: 0.45,
-            shadowRadius: 20,
-            elevation: 24,
           }}
         />
       </View>

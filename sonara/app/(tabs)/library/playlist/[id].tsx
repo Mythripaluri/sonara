@@ -1,7 +1,8 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Modal, Pressable, FlatList, Share, Text, TextInput, View } from "react-native";
+import { Alert, Modal, Pressable, Share, Text, TextInput, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { AddToPlaylistModal } from "../../../../components/AddToPlaylistModal";
 import SongItem from "../../../../components/SongItem";
 import { useAppMessage } from "../../../../context/AppMessageContext";
@@ -10,7 +11,6 @@ import { usePlaylist } from "../../../../hooks/usePlaylist";
 import type { Track } from "../../../../constants/catalog";
 import { colors } from "../../../../theme/colors";
 import { normalizeTrackForPlayer } from "../../../../utils/normalizeTrackForPlayer";
-import { Platform } from "react-native";
 
 export default function PlaylistDetailScreen() {
   const router = useRouter();
@@ -30,57 +30,6 @@ export default function PlaylistDetailScreen() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [selectedSong, setSelectedSong] = useState<Track | null>(null);
   const [addToPlaylistVisible, setAddToPlaylistVisible] = useState(false);
-  const Colors = {
-    light: {
-      text: "#F5F7FA",
-      background: "#0B1F2A",
-      tint: "#4DA3FF",
-      icon: "#9FB3C8",
-      tabIconDefault: "#6E8093",
-      tabIconSelected: "#4DA3FF",
-      surface: "#102836",
-      surfaceElevated: "#17384A",
-      border: "#1F455A",
-    },
-
-    dark: {
-      text: "#F5F7FA",
-      background: "#0B1F2A",
-      tint: "#4DA3FF",
-      icon: "#9FB3C8",
-      tabIconDefault: "#6E8093",
-      tabIconSelected: "#4DA3FF",
-      surface: "#102836",
-      surfaceElevated: "#17384A",
-      border: "#1F455A",
-    },
-  };
-
-  const Fonts = Platform.select({
-    ios: {
-      sans: "system-ui",
-      serif: "ui-serif",
-      rounded: "ui-rounded",
-      mono: "ui-monospace",
-    },
-
-    default: {
-      sans: "normal",
-      serif: "serif",
-      rounded: "normal",
-      mono: "monospace",
-    },
-
-    web: {
-      sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-      serif: "Georgia, 'Times New Roman', serif",
-      rounded:
-        "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-      mono:
-        "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-    },
-  });
-
   useEffect(() => {
     if (playlist?.name) {
       setNewName(playlist.name);
@@ -235,20 +184,20 @@ export default function PlaylistDetailScreen() {
         <View style={{ flexDirection: "row", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
           <Pressable
             onPress={playPlaylist}
-            style={{ backgroundColor: colors.active, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999 }}
+            style={{ backgroundColor: colors.active, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999 }}
           >
             <Text style={{ color: "#1B3C53", fontWeight: "800" }}>Play</Text>
           </Pressable>
           <Pressable
             onPress={shufflePlay}
-            style={{ backgroundColor: colors.surfaceElevated, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999 }}
+            style={{ backgroundColor: colors.glass, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999 }}
           >
             <Text style={{ color: colors.textPrimary, fontWeight: "700" }}>Shuffle</Text>
           </Pressable>
         </View>
       </View>
 
-      <FlatList
+      <FlashList
         data={playlist?.songs || []}
         keyExtractor={(song) => song.id}
         contentContainerStyle={{ paddingBottom: 150 }}

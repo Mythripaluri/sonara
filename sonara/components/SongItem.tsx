@@ -1,6 +1,11 @@
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 import { memo, useState } from "react";
 import { Modal, Pressable, Text, View, Share } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { usePlayer } from "../context/PlayerContext";
 import { colors } from "../theme/colors";
 import type { Track } from "../constants/catalog";
@@ -32,11 +37,12 @@ function SongItem({
   highlightQuery = "",
   onAddToPlaylist = null,
   menuActions = null,
-  imageSize = 54,
-  imageBorderRadius = 10,
+  imageSize = 48,
+  imageBorderRadius = 9,
 }: SongItemProps) {
   const { currentSong } = usePlayer();
   const [menuVisible, setMenuVisible] = useState(false);
+  const scale = useSharedValue(1);
 
   const isCurrent = currentSong?.id === song.id;
   const lowerQuery = highlightQuery.trim().toLowerCase();
@@ -68,19 +74,32 @@ function SongItem({
     );
   };
 
+  const animatedRowStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   return (
+    <Animated.View style={animatedRowStyle}>
     <Pressable
       onPress={() => onPress(song)}
+      onPressIn={() => {
+        scale.value = withSpring(0.985, { damping: 16, stiffness: 260 });
+      }}
+      onPressOut={() => {
+        scale.value = withSpring(1, { damping: 16, stiffness: 260 });
+      }}
       onLongPress={onLongPress ? () => onLongPress(song) : undefined}
       style={{
         flexDirection: "row",
         alignItems: "center",
-        marginHorizontal: 8,
-        marginVertical: 2,
-        paddingHorizontal: 10,
-        paddingVertical: 8,
+        marginHorizontal: 4,
+        marginVertical: 1,
+        paddingHorizontal: 8,
+        paddingVertical: 6,
         borderRadius: 12,
-        backgroundColor: isCurrent ? "rgba(210, 193, 182, 0.15)" : "transparent",
+        backgroundColor: isCurrent ? "rgba(125, 211, 252, 0.13)" : "transparent",
+        borderWidth: isCurrent ? 1 : 0,
+        borderColor: "rgba(125, 211, 252, 0.22)",
       }}
     >
       {/* menu button is rendered on the right side to keep artwork/title aligned left */}
@@ -95,14 +114,14 @@ function SongItem({
           width: imageSize,
           height: imageSize,
           borderRadius: imageBorderRadius,
-          backgroundColor: "#111",
-          marginRight: 10,
+          backgroundColor: colors.surface,
+          marginRight: 9,
         }}
       />
 
       {/* Info */}
       <View style={{ flex: 1 }}>
-        <Text style={{ color: colors.textPrimary, fontWeight: "700", fontSize: 14 }} numberOfLines={1}>
+        <Text style={{ color: colors.textPrimary, fontWeight: "700", fontSize: 13 }} numberOfLines={1}>
           {renderHighlightedTitle(displayTitle)}
         </Text>
         <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }} numberOfLines={1}>
@@ -116,10 +135,10 @@ function SongItem({
         <Pressable
           onPress={() => onAddToPlaylist(song)}
           style={{
-            width: 34,
-            height: 34,
-            borderRadius: 17,
-            backgroundColor: colors.surfaceElevated,
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            backgroundColor: colors.glass,
             justifyContent: "center",
             alignItems: "center",
             marginLeft: 8,
@@ -134,12 +153,12 @@ function SongItem({
           onPress={() => setMenuVisible(true)}
           style={{
             marginLeft: 8,
-            width: 34,
-            height: 34,
-            borderRadius: 17,
+            width: 32,
+            height: 32,
+            borderRadius: 16,
             justifyContent: "center",
             alignItems: "center",
-            backgroundColor: colors.surfaceElevated,
+            backgroundColor: colors.glass,
           }}
         >
           <MaterialIcons name="more-vert" size={18} color={colors.textPrimary} />
@@ -232,6 +251,7 @@ function SongItem({
         </Modal>
       ) : null}
     </Pressable>
+    </Animated.View>
   );
 }
 

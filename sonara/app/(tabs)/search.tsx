@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import ArtistItem from "../../components/ArtistItem";
 import Seo from "../../components/Seo";
@@ -101,6 +102,7 @@ export default function SearchScreen() {
     () => results.map(buildTrackFromSearchResult),
     [results],
   );
+  const visibleTracks = query.trim().length >= 3 ? resultTracks : filteredSongs;
 
   const categories = ["Pop", "Lo-fi", "Indie", "Chill", "Electronic", "Acoustic"];
   const categoryCardWidth = Math.max(0, (width - 32 - 10) / 2);
@@ -112,31 +114,27 @@ export default function SearchScreen() {
     await playSong(normalizedTrack, normalizedQueue);
   };
 
-  return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ paddingBottom: 120, paddingTop: 20, paddingHorizontal: 16 }}
-      showsVerticalScrollIndicator={false}
-    >
+  const renderHeader = () => (
+    <>
       <Seo
         title="Search"
         description="Search Sonara's catalog by song, artist, album, or genre to discover playable tracks faster."
       />
       <View
         style={{
-          borderRadius: 24,
+          borderRadius: 18,
           overflow: "hidden",
           backgroundColor: colors.surface,
           borderWidth: 1,
           borderColor: colors.border,
-          padding: 18,
-          marginBottom: 18,
+          padding: 16,
+          marginBottom: 14,
         }}
       >
-        <Text style={{ color: colors.textPrimary, fontSize: 34, fontWeight: "800" }}>
+        <Text style={{ color: colors.textPrimary, fontSize: 30, fontWeight: "800" }}>
           Search
         </Text>
-        <Text style={{ color: colors.textMuted, marginTop: 6, fontSize: 13, lineHeight: 18 }}>
+        <Text style={{ color: colors.textMuted, marginTop: 4, fontSize: 13, lineHeight: 18 }}>
           Find songs, artists, albums, and genres without losing the flow.
         </Text>
       </View>
@@ -145,9 +143,9 @@ export default function SearchScreen() {
         style={{
           marginTop: 0,
           borderRadius: 999,
-          backgroundColor: colors.surfaceElevated,
+          backgroundColor: colors.glass,
           borderWidth: 1,
-          borderColor: colors.border,
+          borderColor: isFocused ? colors.active : colors.border,
           paddingHorizontal: 14,
           paddingVertical: 2,
         }}
@@ -163,238 +161,241 @@ export default function SearchScreen() {
             color: colors.textPrimary,
             fontSize: 15,
             paddingHorizontal: 10,
-            paddingVertical: 12,
+            paddingVertical: 11,
           }}
         />
       </View>
 
-        {query.trim().length === 0 ? (
-          <>
-            {recentSearches.length > 0 ? (
-              <>
-                <Text
-                  style={{
-                    color: colors.textMuted,
-                    fontSize: 11,
-                    letterSpacing: 1.1,
-                    marginTop: 18,
-                    marginBottom: 10,
-                  }}
-                >
-                  RECENT SEARCHES
-                </Text>
+      {query.trim().length === 0 ? (
+        <>
+          {recentSearches.length > 0 ? (
+            <>
+              <Text
+                style={{
+                  color: colors.textMuted,
+                  fontSize: 11,
+                  letterSpacing: 1.1,
+                  marginTop: 18,
+                  marginBottom: 10,
+                }}
+              >
+                RECENT SEARCHES
+              </Text>
 
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ gap: 10 }}
-                >
-                  {recentSearches.map((item) => (
-                    <Pressable
-                      key={item}
-                      onPress={() => setQuery(item)}
-                      style={{
-                        paddingHorizontal: 14,
-                        paddingVertical: 10,
-                        borderRadius: 999,
-                        backgroundColor: colors.surfaceElevated,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: colors.textPrimary,
-                          fontWeight: "600",
-                        }}
-                      >
-                        {item}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </>
-            ) : null}
-
-            <Text
-              style={{
-                color: colors.textPrimary,
-                fontSize: 20,
-                fontWeight: "800",
-                marginTop: 24,
-                marginBottom: 10,
-              }}
-            >
-              Browse all
-            </Text>
-
-            <View
-              style={{
-                flexDirection: "row",
-                flexWrap: "wrap",
-                justifyContent: "space-between",
-                gap: 4,
-              }}
-            >
-              {categories.map((label, index) => {
-                const grad = gradients[index % gradients.length];
-
-                return (
-                  <LinearGradient
-                    key={label}
-                    colors={[...grad]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 10 }}
+              >
+                {recentSearches.map((item) => (
+                  <Pressable
+                    key={item}
+                    onPress={() => setQuery(item)}
                     style={{
-                      width: categoryCardWidth,
-                      aspectRatio: 1.58,
-                      borderRadius: 18,
-                      padding: 14,
-                      marginBottom: 4,
+                      paddingHorizontal: 14,
+                      paddingVertical: 9,
+                      borderRadius: 999,
+                      backgroundColor: colors.glass,
                     }}
                   >
                     <Text
                       style={{
-                        color: "#fff",
-                        fontWeight: "800",
-                        fontSize: 16,
+                        color: colors.textPrimary,
+                        fontWeight: "600",
                       }}
                     >
-                      {label}
+                      {item}
                     </Text>
-                  </LinearGradient>
-                );
-              })}
-            </View>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </>
+          ) : null}
 
-            <Text
-              style={{
-                color: colors.textMuted,
-                fontSize: 11,
-                letterSpacing: 1.1,
-                marginTop: -123,
-                marginBottom: 10,
-              }}
-            >
-              POPULAR ARTISTS
-            </Text>
+          <Text
+            style={{
+              color: colors.textPrimary,
+              fontSize: 19,
+              fontWeight: "800",
+              marginTop: 22,
+              marginBottom: 10,
+            }}
+          >
+            Browse all
+          </Text>
 
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 10 }}
-            >
-              {artistSuggestions.map((artist) => (
-                <ArtistItem
-                  key={artist.artist}
-                  item={{
-                    id: artist.id,
-                    name: artist.artist,
-                    genre: artist.genre,
-                    artwork: artist.artwork,
-                  }}
-                  onPress={() =>
-                    router.push(
-                      `/artist/${artist.id}?name=${encodeURIComponent(
-                        artist.artist
-                      )}`
-                    )
-                  }
-                />
-              ))}
-            </ScrollView>
-          </>
-        ) : null}
-
-      <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: "800", marginTop: 24, marginBottom: 10 }}>
-        TRENDING SONGS
-      </Text>
-
-        {searchLoading ? (
-          <View style={{ gap: 2 }}>
-            {[...Array(5)].map((_, index) => (
-              <SongItemSkeleton key={index} />
-            ))}
-          </View>
-        ) : query.trim().length >= 3 ? (
-          results.length === 0 ? (
-            <View style={{ marginTop: 8, padding: 20, borderRadius: 18, backgroundColor: colors.surface }}>
-              <Text style={{ color: colors.textPrimary, fontWeight: "700" }}>No matches found</Text>
-              <Text style={{ color: colors.textMuted, marginTop: 8 }}>
-                Try a different song, artist, or album name.
-              </Text>
-              {searchError ? (
-                <Text style={{ color: colors.textMuted, marginTop: 8 }}>
-                  {searchError}
-                </Text>
-              ) : null}
-            </View>
-          ) : (
-            resultTracks.map((track, index) => {
-              const sourceResult = results[index];
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              justifyContent: "space-between",
+              gap: 8,
+            }}
+          >
+            {categories.map((label, index) => {
+              const grad = gradients[index % gradients.length];
 
               return (
-                <SongItem
-                  key={track.id}
-                  song={track}
-                  imageSize={58}
-                  imageBorderRadius={12}
-                  onPress={(song: Track) => playSong(normalizeTrackForPlayer(song), resultTracks.map((item) => normalizeTrackForPlayer(item)))}
-                  menuActions={[
-                    {
-                      label: "Play now",
-                      icon: "play-arrow",
-                      onPress: () => void playResolvedResult(sourceResult),
-                    },
-                    {
-                      label: "Queue song",
-                      icon: "queue-music",
-                      onPress: () => enqueueLast(normalizeTrackForPlayer(track)),
-                    },
-                    {
-                      label: "Queue next",
-                      icon: "queue",
-                      onPress: () => enqueueNext(normalizeTrackForPlayer(track)),
-                    },
-                    {
-                      label: "Add to playlist",
-                      icon: "playlist-add",
-                      onPress: () => {
-                        setSelectedSongForPlaylist(track);
-                        setAddToPlaylistModalVisible(true);
-                      },
-                    },
-                  ]}
-                />
+                <LinearGradient
+                  key={label}
+                  colors={[...grad]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    width: categoryCardWidth,
+                    aspectRatio: 1.72,
+                    borderRadius: 14,
+                    padding: 12,
+                    marginBottom: 2,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: "#fff",
+                      fontWeight: "800",
+                      fontSize: 15,
+                    }}
+                  >
+                    {label}
+                  </Text>
+                </LinearGradient>
               );
-            })
-          )
-        ) : filteredSongs.length === 0 ? (
-          <View style={{ marginTop: 8, padding: 20, borderRadius: 18, backgroundColor: colors.surface }}>
-            <Text style={{ color: colors.textPrimary, fontWeight: "700" }}>No matches found</Text>
-            <Text style={{ color: colors.textMuted, marginTop: 8 }}>
-              Try a different song, artist, or album name.
-            </Text>
+            })}
           </View>
-        ) : (
-          filteredSongs.map((song) => (
-            <SongItem
-              key={song.id}
-              song={song}
-              imageSize={58}
-              imageBorderRadius={12}
-              onPress={(track: Track) => playSong(normalizeTrackForPlayer(track), featuredTracks.map((item) => normalizeTrackForPlayer(item)))}
-              onLongPress={(track: Track) => {
-                setSelectedSongForPlaylist(track);
-                setAddToPlaylistModalVisible(true);
-              }}
-              highlightQuery={query}
-              onAddToPlaylist={(track: Track) => {
-                setSelectedSongForPlaylist(track);
-                setAddToPlaylistModalVisible(true);
-              }}
-            />
-          ))
-        )}
 
+          <Text
+            style={{
+              color: colors.textMuted,
+              fontSize: 11,
+              letterSpacing: 1.1,
+              marginTop: 20,
+              marginBottom: 10,
+            }}
+          >
+            POPULAR ARTISTS
+          </Text>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 10 }}
+          >
+            {artistSuggestions.map((artist) => (
+              <ArtistItem
+                key={artist.artist}
+                item={{
+                  id: artist.id,
+                  name: artist.artist,
+                  genre: artist.genre,
+                  artwork: artist.artwork,
+                }}
+                onPress={() =>
+                  router.push(
+                    `/artist/${artist.id}?name=${encodeURIComponent(
+                      artist.artist
+                    )}`
+                  )
+                }
+              />
+            ))}
+          </ScrollView>
+        </>
+      ) : null}
+
+      <Text style={{ color: colors.textPrimary, fontSize: 19, fontWeight: "800", marginTop: 22, marginBottom: 8 }}>
+        {query.trim().length >= 3 ? "Search results" : "Trending songs"}
+      </Text>
+
+      {searchLoading ? (
+        <View style={{ gap: 2 }}>
+          {[...Array(7)].map((_, index) => (
+            <SongItemSkeleton key={index} />
+          ))}
+        </View>
+      ) : null}
+    </>
+  );
+
+  const renderEmpty = () => {
+    if (searchLoading) return null;
+    return (
+      <View style={{ marginTop: 8, padding: 18, borderRadius: 16, backgroundColor: colors.surface }}>
+        <Text style={{ color: colors.textPrimary, fontWeight: "700" }}>No matches found</Text>
+        <Text style={{ color: colors.textMuted, marginTop: 8 }}>
+          Try a different song, artist, or album name.
+        </Text>
+        {searchError ? (
+          <Text style={{ color: colors.textMuted, marginTop: 8 }}>
+            {searchError}
+          </Text>
+        ) : null}
+      </View>
+    );
+  };
+
+  return (
+    <FlashList
+      style={{ flex: 1, backgroundColor: colors.background }}
+      contentContainerStyle={{ paddingBottom: 120, paddingTop: 20, paddingHorizontal: 16 }}
+      showsVerticalScrollIndicator={false}
+      data={searchLoading ? [] : visibleTracks}
+      keyExtractor={(item) => item.id}
+      ListHeaderComponent={renderHeader}
+      ListEmptyComponent={renderEmpty}
+      renderItem={({ item: track, index }) => {
+        if (query.trim().length >= 3) {
+          const sourceResult = results[index];
+
+          return (
+            <SongItem
+              song={track}
+              onPress={(song: Track) => playSong(normalizeTrackForPlayer(song), resultTracks.map((item) => normalizeTrackForPlayer(item)))}
+              menuActions={[
+                {
+                  label: "Play now",
+                  icon: "play-arrow",
+                  onPress: () => void playResolvedResult(sourceResult),
+                },
+                {
+                  label: "Queue song",
+                  icon: "queue-music",
+                  onPress: () => enqueueLast(normalizeTrackForPlayer(track)),
+                },
+                {
+                  label: "Queue next",
+                  icon: "queue",
+                  onPress: () => enqueueNext(normalizeTrackForPlayer(track)),
+                },
+                {
+                  label: "Add to playlist",
+                  icon: "playlist-add",
+                  onPress: () => {
+                    setSelectedSongForPlaylist(track);
+                    setAddToPlaylistModalVisible(true);
+                  },
+                },
+              ]}
+            />
+          );
+        }
+
+        return (
+          <SongItem
+            song={track}
+            onPress={(song: Track) => playSong(normalizeTrackForPlayer(song), featuredTracks.map((item) => normalizeTrackForPlayer(item)))}
+            onLongPress={(song: Track) => {
+              setSelectedSongForPlaylist(song);
+              setAddToPlaylistModalVisible(true);
+            }}
+            highlightQuery={query}
+            onAddToPlaylist={(song: Track) => {
+              setSelectedSongForPlaylist(song);
+              setAddToPlaylistModalVisible(true);
+            }}
+          />
+        );
+      }}
+      ListFooterComponent={
         <AddToPlaylistModal
           visible={addToPlaylistModalVisible}
           song={selectedSongForPlaylist}
@@ -403,6 +404,7 @@ export default function SearchScreen() {
             setSelectedSongForPlaylist(null);
           }}
         />
-    </ScrollView>
+      }
+    />
   );
 }

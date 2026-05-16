@@ -1,12 +1,12 @@
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, FlatList, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import SongItem from "../../../components/SongItem";
 import { usePlayer } from "../../../context/PlayerContext";
 import { usePlaylist } from "../../../hooks/usePlaylist";
 import { colors } from "../../../theme/colors";
 import { normalizeTrackForPlayer } from "../../../utils/normalizeTrackForPlayer";
-import { Stack } from "expo-router";
 
 export default function LibraryScreen() {
   const router = useRouter();
@@ -30,7 +30,7 @@ export default function LibraryScreen() {
         }}
       />
 
-      <FlatList<any>
+      <FlashList<any>
         style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={{
           paddingBottom: 120,
@@ -56,7 +56,7 @@ export default function LibraryScreen() {
                       paddingHorizontal: 14,
                       paddingVertical: 8,
                       borderRadius: 999,
-                      backgroundColor: active ? colors.active : colors.surfaceElevated,
+                      backgroundColor: active ? colors.active : colors.glass,
                     }}
                   >
                     <Text style={{ color: active ? "#1B3C53" : colors.textPrimary, fontWeight: "700", textTransform: "capitalize" }}>
@@ -73,9 +73,9 @@ export default function LibraryScreen() {
                   key={item.label}
                   style={{
                     flex: 1,
-                    backgroundColor: colors.surfaceElevated,
-                    padding: 14,
-                    borderRadius: 16,
+                    backgroundColor: colors.glass,
+                    padding: 12,
+                    borderRadius: 14,
                   }}
                 >
                   <Text style={{ color: colors.textMuted, fontSize: 12 }}>{item.label}</Text>
@@ -92,10 +92,10 @@ export default function LibraryScreen() {
             <Pressable
               onPress={() => router.push({ pathname: "/library/playlist/[id]", params: { id: (item as any).id } } as any)}
               style={{
-                backgroundColor: colors.surfaceElevated,
-                borderRadius: 14,
-                paddingHorizontal: 14,
-                paddingVertical: 14,
+                backgroundColor: colors.glass,
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                paddingVertical: 12,
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "space-between",
